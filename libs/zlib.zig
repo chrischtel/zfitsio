@@ -7,7 +7,12 @@ pub fn create(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.bui
         .optimize = optimize,
         .link_libc = true,
     });
-    lib.addIncludePath(b.path("libs/zlib/"));
+
+    // Get the path for the zlib dependency
+    const zlib_dep = b.lazyDependency("zlib", .{
+        .target = target,
+        .optimize = optimize,
+    }) orelse return null;
 
     // Add source files for zlib
     const srcs = &.{
@@ -28,10 +33,16 @@ pub fn create(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.bui
         "zutil.c",
     };
 
+    // Add each source file from the zlib dependency path
     inline for (srcs) |src| {
-        lib.addCSourceFile(.{ .file = b.path("libs/zlib/" ++ src), .flags = &.{"-std=c89"} });
+        lib.addCSourceFile(.{
+            .file = zlib_dep.path(src),
+            .flags = &.{"-std=c89"},
+        });
     }
-    lib.installHeader(b.path("libs/zlib/zlib.h"), "zlib.h");
+    // Include zlib headers
+    lib.installHeader(zlib_dep.path("zlib.h"), "zlib.h");
+    lib.installHeader(zlib_dep.path("zconf.h"), "zconf.h");
 
     return lib;
 }

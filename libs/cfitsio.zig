@@ -8,8 +8,6 @@ pub fn create(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.bui
         .link_libc = true,
     });
 
-    lib.addIncludePath(b.path("libs/zlib/"));
-
     const cfitsio_dep = b.lazyDependency("cfitsio", .{
         .target = target,
         .optimize = optimize,
