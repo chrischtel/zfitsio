@@ -8,13 +8,13 @@ pub fn create(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.bui
         .link_libc = true,
     });
 
-    // Get the path for the zlib dependency
+    // Resolve the dependency for `zlib`
     const zlib_dep = b.lazyDependency("zlib", .{
         .target = target,
         .optimize = optimize,
     }) orelse return null;
 
-    // Add source files for zlib
+    // List of `zlib` source files
     const srcs = &.{
         "adler32.c",
         "compress.c",
@@ -33,14 +33,15 @@ pub fn create(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.bui
         "zutil.c",
     };
 
-    // Add each source file from the zlib dependency path
+    // Add each source file to the build step
     inline for (srcs) |src| {
         lib.addCSourceFile(.{
             .file = zlib_dep.path(src),
             .flags = &.{"-std=c89"},
         });
     }
-    // Include zlib headers
+
+    // Install `zlib` headers for library use
     lib.installHeader(zlib_dep.path("zlib.h"), "zlib.h");
     lib.installHeader(zlib_dep.path("zconf.h"), "zconf.h");
 

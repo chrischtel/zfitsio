@@ -1,10 +1,11 @@
 const std = @import("std");
-const testing = std.testing;
+const util = @import("utility.zig");
+const c = util.c;
 
-export fn add(a: i32, b: i32) i32 {
-    return a + b;
-}
-
-test "basic add functionality" {
-    try testing.expect(add(3, 7) == 10);
+pub fn testfu() !void {
+    // Example of using a cfitsio function
+    var file: ?*c.fitsfile = null;
+    var status: i32 = 0;
+    _ = c.ffopen(&file, "myfile.fits", c.READONLY, &status);
+    std.debug.print("Opened FITS file with status: {}\n", .{status});
 }

@@ -10,6 +10,7 @@
     pkgs.cfitsio
     pkgs.zlib
     pkgs.zls
+    pkgs.clang
     # pkgs.python311
     # pkgs.python311Packages.pip
     # pkgs.nodejs_20
