@@ -1,5 +1,6 @@
 const std = @import("std");
-
+const cfitsio = @import("libs/cfitsio.zig");
+const zlib = @import("libs/zlib.zig");
 // Although this function looks imperative, note that its job is to
 // declaratively construct a build graph that will be executed by an external
 // runner.
@@ -14,7 +15,9 @@ pub fn build(b: *std.Build) void {
     // between Debug, ReleaseSafe, ReleaseFast, and ReleaseSmall. Here we do not
     // set a preferred release mode, allowing the user to decide how to optimize.
     const optimize = b.standardOptimizeOption(.{});
-
+    const libcfitsio = cfitsio.create(b, target, optimize) orelse return;
+    const libzlib = zlib.create(b, target, optimize) orelse return;
+    libcfitsio.linkLibrary(libzlib);
     const lib = b.addStaticLibrary(.{
         .name = "zfitsio",
         // In this case the main source file is merely a path, however, in more
@@ -23,6 +26,8 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
+
+    lib.linkLibrary(libcfitsio);
 
     // This declares intent for the library to be installed into the standard
     // location when the user invokes the "install" step (the default step when
@@ -35,6 +40,9 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
+
+    exe.linkLibrary(libcfitsio);
+    exe.linkLibrary(libzlib);
 
     // This declares intent for the executable to be installed into the
     // standard location when the user invokes the "install" step (the default
