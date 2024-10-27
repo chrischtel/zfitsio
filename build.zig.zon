@@ -43,6 +43,8 @@
         "build.zig.zon",
         "src",
         "src/utility.zig",
+        "libs/zlib.zig",
+        "libs/cfitsio.zig",
         // For example...
         //"LICENSE",
         //"README.md",
