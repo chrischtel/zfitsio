@@ -33,14 +33,13 @@ pub fn build(b: *std.Build) void {
     // This declares intent for the library to be installed into the standard
     // location when the user invokes the "install" step (the default step when
     // running `zig build`).
+    b.installArtifact(libcfitsio);
     b.installArtifact(lib);
 
     _ = b.addModule("zfitsio", .{
         .root_source_file = b.path("src/root.zig"),
     });
-
-    _ = b.addModule("cfitsio.h", .{ .root_source_file = b.path("libs/fitsio.h") });
-    _ = b.addModule("longnam.h", .{ .root_source_file = b.path("libs/longnam.h") });
+    
 
     const exe = b.addExecutable(.{
         .name = "zfitsio",
