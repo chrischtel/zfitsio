@@ -39,8 +39,8 @@ pub fn build(b: *std.Build) void {
         .root_source_file = b.path("src/root.zig"),
     });
 
-    _ = b.addModule("cftisio.h", .{ .source_file = .{ .path = b.pathFromRoot("libs/cftisio.h") } });
-    _ = b.addModule("longnam.h", .{ .source_file = .{ .path = b.pathFromRoot("libs/longnam.h") } });
+    _ = b.addModule("cfitsio.h", .{ .root_source_file = b.path("libs/fitsio.h") });
+    _ = b.addModule("longnam.h", .{ .root_source_file = b.path("libs/longnam.h") });
 
     const exe = b.addExecutable(.{
         .name = "zfitsio",
