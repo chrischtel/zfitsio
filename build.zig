@@ -30,8 +30,6 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
     lib.addIncludePath(b.path("libs/cfitsio"));
-    lib.installHeader(libcfitsio.path("longnam.h"), "longnam.h");
-
 lib.linkLibrary(libcfitsio);
 
     // This declares intent for the library to be installed into the standard
