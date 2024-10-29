@@ -1,4 +1,2 @@
 const std = @import("std");
-pub const c = @cImport({
-    @cInclude("fitsio.h");
-});
+pub const c = @import("wrapper.zig");

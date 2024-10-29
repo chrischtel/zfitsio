@@ -17,7 +17,9 @@ pub fn build(b: *std.Build) void {
     const optimize = b.standardOptimizeOption(.{});
     const libcfitsio = cfitsio.create(b, target, optimize) orelse return;
     const libzlib = zlib.create(b, target, optimize) orelse return;
+
     libcfitsio.linkLibrary(libzlib);
+
     const lib = b.addStaticLibrary(.{
         .name = "zfitsio",
         // In this case the main source file is merely a path, however, in more
@@ -26,7 +28,6 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
-    lib.addIncludePath(b.path("libs/cfitsio"));
 
     lib.linkLibrary(libcfitsio);
 
