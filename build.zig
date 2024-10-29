@@ -30,7 +30,6 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
     lib.addIncludePath(b.path("libs/cfitsio"));
-        lib.installHeader(libcfitsio.path("fitsio.h"), "fitsio.h");
     lib.installHeader(libcfitsio.path("longnam.h"), "longnam.h");
 
 lib.linkLibrary(libcfitsio);
