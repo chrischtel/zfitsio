@@ -18,6 +18,9 @@ pub fn build(b: *std.Build) void {
     const libcfitsio = cfitsio.create(b, target, optimize) orelse return;
     const libzlib = zlib.create(b, target, optimize) orelse return;
     libcfitsio.linkLibrary(libzlib);
+
+    b.installArtifact(libcfitsio);
+
     const lib = b.addStaticLibrary(.{
         .name = "zfitsio",
         // In this case the main source file is merely a path, however, in more
@@ -27,8 +30,8 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
     lib.addIncludePath(b.path("libs/cfitsio"));
-
-    lib.linkLibrary(libcfitsio);
+lib.addIncludePath(libcfitsio.getEmittedIncludeTree());
+lib.linkLibrary(libcfitsio);
 
     // This declares intent for the library to be installed into the standard
     // location when the user invokes the "install" step (the default step when
@@ -39,6 +42,7 @@ pub fn build(b: *std.Build) void {
         .root_source_file = b.path("src/root.zig"),
     });
     
+
     const exe = b.addExecutable(.{
         .name = "zfitsio",
         .root_source_file = b.path("src/main.zig"),
