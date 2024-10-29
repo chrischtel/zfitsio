@@ -88,5 +88,8 @@ pub fn create(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.bui
     lib.installHeader(cfitsio_dep.path("fitsio.h"), "fitsio.h");
     lib.installHeader(cfitsio_dep.path("longnam.h"), "longnam.h");
 
+    b.installArtifact(lib);
+
+
     return lib;
 }
