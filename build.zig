@@ -35,9 +35,9 @@ pub fn build(b: *std.Build) void {
     // location when the user invokes the "install" step (the default step when
     // running `zig build`).
     b.installArtifact(lib);
-    _ = b.addModule("zfitsio-demo", .{ .root_source_file = b.path("src/root.zig"), });
+    _ = b.addModule("zfitsio", .{ .root_source_file = b.path("src/root.zig"), });
     const exe = b.addExecutable(.{
-        .name = "zfitsio",
+        .name = "zfitsio-demo",
         .root_source_file = b.path("src/main.zig"),
         .target = target,
         .optimize = optimize,
