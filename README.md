@@ -46,16 +46,3 @@ Please note that `zfitsio` relies on CFITSIO, which must be properly configured 
 
 
 ---
-
-### 3. **Roadmap**
-
-```markdown
-## Roadmap
-
-- [ ] Basic file open and close functionality
-- [ ] Retrieve image dimensions and metadata
-- [ ] Read image pixel data
-- [ ] Enhanced error handling and Zig-native types
-- [ ] Support for writing and editing FITS files
-
-See the [open issues](https://github.com/chrischtel/zfitsio/issues) for a complete list of features and known issues.
