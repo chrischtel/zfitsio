@@ -8,7 +8,7 @@
 
 ---
 ## 2. **Installation**
-d
+
 ### Prerequisites
 - **Zig**: Install latest version (0.13.0)
 
