@@ -41,9 +41,9 @@ d
 
 `zfitsio` aims to be cross-platform, but support may vary depending on your setup and dependencies. Below is the list of platforms currently supported:
 
-- **Linux** (tested on Ubuntu and other Debian-based distributions)
+- ~~**Linux** (tested on Ubuntu and other Debian-based distributions)~~
 - ~~**macOS** (support for Intel and Apple Silicon architectures)~~
-- **Windows** (support in progress, some configurations may require adjustments)
+- **Windows** (support when building dependencies from source (built-in build proccess), systemwide-linkage not tested)
 
 Please note that `zfitsio` relies on CFITSIO, which must be properly configured for each platform. Users are encouraged to report any platform-specific issues or contribute to enhancing cross-platform support.
 
