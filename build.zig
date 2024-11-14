@@ -1,6 +1,22 @@
 const std = @import("std");
 const this = @This();
 
+var _cfitsio_lib_cache: ?*std.Build.Step.Compile = null;
+fn getCfitsio(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode) *std.Build.Step.Compile {
+    if (_cfitsio_lib_cache) |lib| return lib;
+
+    _cfitsio_lib_cache = createCfitsio(b, target, optimize);
+    return _cfitsio_lib_cache.?;
+}
+
+var _zlib_lib_cache: ?*std.Build.Step.Compile = null;
+fn getZlib(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode) *std.Build.Step.Compile {
+    if (_zlib_lib_cache) |lib| return lib;
+
+    _zlib_lib_cache = createZlib(b, target, optimize);
+    return _zlib_lib_cache.?;
+}
+
 fn getModule(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode) *std.Build.Module {
     if (b.modules.contains("zfitsio")) {
         return b.modules.get("zfitsio").?;
@@ -18,12 +34,12 @@ pub fn build(b: *std.Build) !void {
     const use_system_libs = b.option(bool, "use-system-libs", "Use system-installed libraries instead of building from source") orelse false;
 
     const zlib_lib = if (!use_system_libs)
-        createZlib(b, target, optimize) orelse unreachable
+        getZlib(b, target, optimize)
     else
         null;
 
     const cfitsio_lib = if (!use_system_libs) blk: {
-        const lib = createCfitsio(b, target, optimize) orelse unreachable;
+        const lib = getCfitsio(b, target, optimize);
         if (zlib_lib) |zl| lib.linkLibrary(zl);
         break :blk lib;
     } else null;
