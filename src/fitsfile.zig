@@ -1,21 +1,14 @@
 const std = @import("std");
-const c = @import("util//util.zig").c;
+const u = @import("util//util.zig");
 
-fn addNullByte(allocator: std.mem.Allocator, s: [*c]const u8) ![]const u8 {
-    const ss = std.mem.span(s);
-    const result = try allocator.alloc(u8, ss.len + 1);
-    @memcpy(result[0..ss.len], ss);
-    result[ss.len] = 0;
-    return result;
-}
-
+const c = u.c;
 pub const FitsFile = struct {
     fptr: *c.fitsfile,
     allocator: std.mem.Allocator,
 
     pub fn open(allocator: std.mem.Allocator, path: [*c]const u8, mode: c_int) !*FitsFile {
         var status: c_int = 0;
-        const c_path = try addNullByte(allocator, path);
+        const c_path = try u.addNullByte(allocator, path);
         defer allocator.free(c_path);
         const c_path_c: [*c]const u8 = @ptrCast(c_path);
         var fptr: ?*c.fitsfile = null;

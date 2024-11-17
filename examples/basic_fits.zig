@@ -6,7 +6,7 @@ pub fn main() !void {
     defer _ = gpa.deinit();
     const allocator = gpa.allocator();
 
-    var fits_file = try fits.openFits(allocator, "examples/data/sample.fit", fits.Mode.READ_ONLY);
+    var fits_file = try fits.openFits(allocator, "examples/data/test.fit", fits.Mode.READ_ONLY);
     defer fits_file.close() catch |err| {
         std.debug.print("Error closing file: {}\n", .{err});
     };
