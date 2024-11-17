@@ -17,4 +17,15 @@ pub fn main() !void {
 
     const dimensions = try fits_file.getImageDimensions();
     std.debug.print("Image dimensions: {d}x{d}\n", .{ dimensions[0], dimensions[1] });
+
+    var header = fits.FITSHeader.init(fits_file);
+
+    try header.printAllHeaders(); // This will show all headers in the file
+
+    // Then try to get the specific keyword
+    const keyword = header.getKeyword("IMAGETYP") catch |err| {
+        std.debug.print("Error reading IMAGETYPE: {}\n", .{err});
+        return err;
+    };
+    defer allocator.free(keyword);
 }

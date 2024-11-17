@@ -2,6 +2,7 @@ const std = @import("std");
 const c = @import("util/util.zig").c;
 
 pub const FitsFile = @import("fitsfile.zig").FitsFile;
+pub const FITSHeader = @import("FITSHeader.zig").FITSHeader;
 
 // Re-export commonly used constants from cfitsio
 pub const Mode = struct {
@@ -30,4 +31,10 @@ pub const FitsError = error{
 // High-level helper functions
 pub fn openFits(allocator: std.mem.Allocator, path: []const u8, mode: c_int) !*FitsFile {
     return FitsFile.open(allocator, path.ptr, mode);
+}
+
+pub fn getKeyword(file: *FitsFile, keyword: []const u8) ![]const u8 {
+    var header = FITSHeader.init(file);
+
+    return try header.getKeyword(keyword);
 }
