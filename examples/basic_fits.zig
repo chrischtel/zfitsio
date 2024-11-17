@@ -11,6 +11,10 @@ pub fn main() !void {
         std.debug.print("Error closing file: {}\n", .{err});
     };
 
+    const count = try fits_file.getHDUCount();
+
+    std.debug.print("HDU count: {d}\n", .{count});
+
     const dimensions = try fits_file.getImageDimensions();
     std.debug.print("Image dimensions: {d}x{d}\n", .{ dimensions[0], dimensions[1] });
 }
