@@ -3,6 +3,7 @@
    <a href="https://github.com/chrischtel/zfitsio#Apache-2.0-1-ov-file"><img src="https://badgen.net/github/license/chrischtel/zfitsio" />
    
 > ⚠️ **Notice:** This project is a work in progress and is not yet stable for production use. Key features are still under development, and the API may change.
+> Please note that the Documentation is basically non-existent und the examples are very incomplete!
 
 <p id="description">zfitsio is a lightweight (not yet powerful) Zig wrapper around the widely-used CFITSIO library designed to provide Zig developers with seamless access to FITS (Flexible Image Transport System) files. FITS is a standard file format used in astrophotography astronomy and scientific imaging. This project simplifies the process of reading manipulating and analyzing FITS data by wrapping core CFITSIO functions in a Zig-friendly interface allowing efficient data handling without complex setups.</p>
 
