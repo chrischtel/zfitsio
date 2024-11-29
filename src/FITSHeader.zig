@@ -29,11 +29,17 @@ pub const FITSHeader = struct {
 
     const Self = @This();
 
-    pub fn validateCard(self: *Self, card: CardImage) !void {
+    fn validateCard(self: *Self, card: CardImage) !void {
         if (isReservedKeyword(card.keyword)) return error.ReservedKeywordModification;
-        if (!try self.fits_file.validateRequiredHeaders()) return error.MissingRequiredHeader;
-    }
 
+        // Check if this is the first line and not SIMPLE
+        var nkeys: c_int = 0;
+        var status: c_int = 0;
+        _ = c.fits_get_hdrspace(self.fits_file.fptr, &nkeys, null, &status);
+        if (nkeys == 0 and !std.mem.eql(u8, card.keyword, "SIMPLE")) {
+            return error.FirstKeywordMustBeSIMPLE;
+        }
+    }
     pub fn isReservedKeyword(keyword: []const u8) bool {
         const reserved = [_][]const u8{ "SIMPLE", "BITPIX", "NAXIS", "EXTEND" };
         for (reserved) |k| {
@@ -212,3 +218,27 @@ pub const FITSHeader = struct {
         std.debug.print("----------------\n", .{});
     }
 };
+
+test "Header security checks" {
+    std.debug.print("Running header security checks...\n", .{});
+    const allocator = std.testing.allocator;
+
+    var fits_file = try FitsFile.createFits(allocator, "examples/data/security_test.fit");
+    defer fits_file.close() catch {};
+    var header = FITSHeader.init(fits_file);
+
+    // Test 1: First keyword must be SIMPLE
+    try std.testing.expectError(error.FirstKeywordMustBeSIMPLE, header.insertCardImage(.{
+        .keyword = "RANDOM",
+        .value = "value",
+        .comment = null,
+    }));
+
+    // Test 2: Cannot modify reserved keywords
+    try header.writeKeyword("SIMPLE", true, null);
+    try std.testing.expectError(error.ReservedKeywordModification, header.insertCardImage(.{
+        .keyword = "SIMPLE",
+        .value = "false",
+        .comment = null,
+    }));
+}

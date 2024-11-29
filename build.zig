@@ -84,19 +84,27 @@ pub fn build(b: *std.Build) !void {
     });
     fitsfile_tests.root_module.addImport("wrapper", wrapper);
     fits_header_tests.root_module.addImport("wrapper", wrapper);
-
+    fits_header_tests.root_module.addImport("zfitsio", zfitsio);
     if (cfitsio_lib) |lib| {
         fitsfile_tests.linkLibrary(lib);
-        if (zlib_lib) |zl| fitsfile_tests.linkLibrary(zl);
+        fits_header_tests.linkLibrary(lib); // Add this line
+        if (zlib_lib) |zl| {
+            fitsfile_tests.linkLibrary(zl);
+            fits_header_tests.linkLibrary(zl); // Add this line
+        }
     } else {
         fitsfile_tests.linkSystemLibrary("cfitsio");
+        fits_header_tests.linkSystemLibrary("cfitsio"); // Add this line
         fitsfile_tests.linkSystemLibrary("z");
+        fits_header_tests.linkSystemLibrary("z"); // Add this line
     }
 
     const run_fitsfile_tests = b.addRunArtifact(fitsfile_tests);
+    const run_header_tests = b.addRunArtifact(fits_header_tests);
     const test_step = b.step("test", "Run unit tests");
 
     test_step.dependOn(&run_fitsfile_tests.step);
+    test_step.dependOn(&run_header_tests.step); // Add this line
 
     const examples = [_]struct {
         name: []const u8,

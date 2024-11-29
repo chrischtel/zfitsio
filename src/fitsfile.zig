@@ -30,6 +30,22 @@ pub const FitsFile = struct {
         }
     }
 
+    pub fn createFits(allocator: std.mem.Allocator, path: [*c]const u8) !*FitsFile {
+        var status: c_int = 0;
+        const c_path = try u.addNullByte(allocator, @ptrCast(path));
+        defer allocator.free(c_path);
+        var fptr: ?*c.fitsfile = null;
+        const result = c.fits_create_file(&fptr, @ptrCast(c_path), &status);
+        if (result != 0) return error.CreateFileFailed;
+
+        const fits = try allocator.create(FitsFile);
+        fits.* = .{
+            .fptr = fptr.?,
+            .allocator = allocator,
+        };
+        return fits;
+    }
+
     pub fn open(allocator: std.mem.Allocator, path: [*c]const u8, mode: c_int) !*FitsFile {
         var status: c_int = 0;
         const c_path = try u.addNullByte(allocator, path);
@@ -112,9 +128,9 @@ test "FitsFile open and metadata retrieval" {
     const allocator = std.testing.allocator;
 
     std.debug.print("\nRunning FitsFile test...\n", .{});
-    var fits_file = try FitsFile.open(allocator, "examples/data/test.fit", c.READONLY);
+    var fits_file = try FitsFile.open(allocator, "examples/data/M51_lum.fit", c.READONLY);
     defer fits_file.close() catch |err| {
-        std.debug.print("Failed to close FITS file: {}\n", .{err});
+        std.debug.print("Failed to close FITS fiele: {}\n", .{err});
     };
 
     const hdu_count = try fits_file.getHDUCount();
