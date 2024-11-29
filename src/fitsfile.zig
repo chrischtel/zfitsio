@@ -72,13 +72,19 @@ pub const FitsFile = struct {
             @intCast(dims[1]),
         };
     }
+
+    pub fn flush(self: *FitsFile) !void {
+        var status: c_int = 0;
+        const result = c.fits_flush_file(self.fptr, &status);
+        if (result != 0) return error.FlushFailed;
+    }
 };
 
 test "FitsFile open and metadata retrieval" {
     const allocator = std.testing.allocator;
 
     std.debug.print("\nRunning FitsFile test...\n", .{});
-    var fits_file = try FitsFile.open(allocator, "examples/data/sample.fit", c.READONLY);
+    var fits_file = try FitsFile.open(allocator, "examples/data/test.fit", c.READONLY);
     defer fits_file.close() catch |err| {
         std.debug.print("Failed to close FITS file: {}\n", .{err});
     };

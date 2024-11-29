@@ -36,6 +36,50 @@ pub const FITSHeader = struct {
         };
     }
 
+    pub fn writeKeyword(self: *Self, keyword: []const u8, value: anytype, comment: ?[]const u8) !void {
+        var status: c_int = 0;
+        const c_keyword = @as([*c]const u8, @ptrCast(keyword));
+        const c_comment = if (comment) |cc| @as([*c]const u8, @ptrCast(cc)) else null;
+
+        const T = @TypeOf(value);
+        switch (@typeInfo(T)) {
+            .Pointer, .Array => {
+                // For string values, we need to quote them for FITS format
+                var quoted_value: [81]u8 = undefined;
+                const value_str = if (T == []const u8) value else @as([]const u8, value);
+                const formatted = std.fmt.bufPrint(&quoted_value, "'{s}'", .{value_str}) catch return error.ValueTooLong;
+
+                const result = c.fits_update_key_str(self.fits_file.fptr, c_keyword, @ptrCast(formatted), c_comment, &status);
+                if (result != 0) return error.WriteKeywordFailed;
+                return;
+            },
+            else => switch (T) {
+                bool => {
+                    const result = c.fits_update_key_log(self.fits_file.fptr, c_keyword, @intFromBool(value), c_comment, &status);
+                    if (result != 0) return error.WriteKeywordFailed;
+                },
+                comptime_int, i32, i64 => {
+                    const result = c.fits_update_key_lng(self.fits_file.fptr, c_keyword, @intCast(value), c_comment, &status);
+                    if (result != 0) return error.WriteKeywordFailed;
+                },
+                comptime_float, f32, f64 => {
+                    const result = c.fits_update_key_dbl(self.fits_file.fptr, c_keyword, @floatCast(value), 6, c_comment, &status);
+                    if (result != 0) return error.WriteKeywordFailed;
+                },
+                else => return error.InvalidDataType,
+            },
+        }
+    }
+
+    pub fn deleteKeyword(self: *Self, keyword: []const u8) !void {
+        var status: c_int = 0;
+        const c_keyword = try u.addNullByte(self.allocator, keyword);
+        defer self.allocator.free(c_keyword);
+
+        const result = c.fits_delete_key(self.fits_file.fptr, @ptrCast(c_keyword), &status);
+        if (result != 0) return error.DeleteKeywordFailed;
+    }
+
     pub fn getKeyword(self: *Self, keyword: []const u8) ![]const u8 {
         var status: c_int = 0;
         const c_keyword = try u.addNullByte(self.allocator, @ptrCast(keyword));

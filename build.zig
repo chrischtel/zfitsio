@@ -69,12 +69,21 @@ pub fn build(b: *std.Build) !void {
         .optimize = optimize,
     });
 
+    const fits_header_tests = b.addTest(.{
+        .root_source_file = b.path("src/FITSHeader.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+
+    fits_header_tests.linkLibC(); // Add this
+
     fitsfile_tests.linkLibC(); // Add this
 
     const wrapper = b.addModule("wrapper", .{
         .root_source_file = b.path("src/wrapper.zig"),
     });
     fitsfile_tests.root_module.addImport("wrapper", wrapper);
+    fits_header_tests.root_module.addImport("wrapper", wrapper);
 
     if (cfitsio_lib) |lib| {
         fitsfile_tests.linkLibrary(lib);
