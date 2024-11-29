@@ -107,6 +107,7 @@ pub fn build(b: *std.Build) !void {
         .{ .name = "modify_header", .path = "examples/modify_header.zig" },
         .{ .name = "basic_fits", .path = "examples/basic_fits.zig" },
         .{ .name = "a", .path = "examples/a.zig" },
+        .{ .name = "header_manipulation", .path = "examples/header_manipulation.zig" },
     };
 
     const examples_step = b.step("examples", "Build examples");

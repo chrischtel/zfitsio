@@ -16,7 +16,7 @@ pub fn main() !void {
 
     // Open a FITS file in READ_WRITE mode
     // The file path is relative to the project root
-    var fits_file = try fits.openFits(allocator, "examples/data/test.fit", fits.Mode.READ_WRITE);
+    var fits_file = try fits.openFits(allocator, "examples/data/M51_green.fit", fits.Mode.READ_WRITE);
     // Ensure file is closed when function exits, ignoring potential close errors
     defer fits_file.close() catch unreachable;
 

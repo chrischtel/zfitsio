@@ -6,7 +6,7 @@ pub fn main() !void {
     defer _ = gpa.deinit();
     const allocator = gpa.allocator();
 
-    var fits_file = try fits.openFits(allocator, "examples/data/test.fit", fits.Mode.READ_ONLY);
+    var fits_file = try fits.openFits(allocator, "examples/data/M51_lum.fit", fits.Mode.READ_ONLY);
     defer fits_file.close() catch |err| {
         std.debug.print("Error closing file: {}\n", .{err});
     };
@@ -23,7 +23,7 @@ pub fn main() !void {
     try header.printAllHeaders(); // This will show all headers in the file
 
     // Then try to get the specific keyword
-    const keyword = header.getKeyword("IMAGETYP") catch |err| {
+    const keyword = header.getKeyword("SIMPLE") catch |err| {
         std.debug.print("Error reading IMAGETYPE: {}\n", .{err});
         return err;
     };

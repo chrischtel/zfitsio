@@ -1,10 +1,34 @@
 const std = @import("std");
 const u = @import("util//util.zig");
+const fitsheader = @import("FITSHeader.zig").FITSHeader;
 
 const c = u.c;
+
+pub const Mode = struct {
+    READ_ONLY: bool = true,
+    ALLOW_HEADER_MODS: bool = false,
+    ALLOW_DATA_MODS: bool = false,
+};
+
 pub const FitsFile = struct {
     fptr: *c.fitsfile,
     allocator: std.mem.Allocator,
+
+    pub fn validateRequiredHeaders(self: *FitsFile) !bool {
+        var header = fitsheader.init(self);
+        const required = [_][]const u8{ "SIMPLE", "BITPIX", "NAXIS" };
+        for (required) |key| {
+            if (!try header.hasKeyword(key)) return false;
+        }
+
+        return true;
+    }
+
+    pub fn canModifyHeaders(self: *FitsFile) !void {
+        if (self.mode.READ_ONLY or !self.mode.ALLOW_HEADER_MODS) {
+            return error.HeaderModificationNotAllowed;
+        }
+    }
 
     pub fn open(allocator: std.mem.Allocator, path: [*c]const u8, mode: c_int) !*FitsFile {
         var status: c_int = 0;
@@ -14,13 +38,17 @@ pub const FitsFile = struct {
         var fptr: ?*c.fitsfile = null;
 
         const result = c.fits_open_file(&fptr, c_path_c, mode, &status);
-        if (result != 0) return error.OpenFileFailed;
+        if (result != 0) {
+            std.debug.print("Open failed with status: {d}\n", .{status});
+            return error.OpenFileFailed;
+        }
 
         const fits = try allocator.create(FitsFile);
         fits.* = .{
             .fptr = fptr.?,
             .allocator = allocator,
         };
+
         return fits;
     }
 
