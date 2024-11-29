@@ -1,49 +1,129 @@
+<div align="center">
 
-<a href="https://github.com/chrischtel/zfitsio/releases"><img src="https://badgen.net/github/release/chrischtel/zfitsio" />   
-   <a href="https://github.com/chrischtel/zfitsio#Apache-2.0-1-ov-file"><img src="https://badgen.net/github/license/chrischtel/zfitsio" />
-   
-> ⚠️ **Notice:** This project is a work in progress and is not yet stable for production use. Key features are still under development, and the API may change.
-> Please note that the Documentation is basically non-existent und the examples are very incomplete!
+# 🌌 zfitsio
 
-<p id="description">zfitsio is a lightweight (not yet powerful) Zig wrapper around the widely-used CFITSIO library designed to provide Zig developers with seamless access to FITS (Flexible Image Transport System) files. FITS is a standard file format used in astrophotography astronomy and scientific imaging. This project simplifies the process of reading manipulating and analyzing FITS data by wrapping core CFITSIO functions in a Zig-friendly interface allowing efficient data handling without complex setups.</p>
+### A Modern Zig Wrapper for CFITSIO
+
+[![Release](https://badgen.net/github/release/chrischtel/zfitsio)](https://github.com/chrischtel/zfitsio/releases)
+[![License](https://badgen.net/github/license/chrischtel/zfitsio)](https://github.com/chrischtel/zfitsio#Apache-2.0-1-ov-file)
+[![Zig](https://img.shields.io/badge/Zig-0.13.0-orange.svg)](https://ziglang.org/)
+[![Status](https://img.shields.io/badge/Status-Alpha-yellow.svg)](https://github.com/chrischtel/zfitsio)
+
+*Seamlessly work with astronomical FITS files in your Zig applications*
+
+</div>
 
 ---
-## 2. **Installation**
+
+> 🚧 **Development Status:** This project is currently in alpha stage. The API is subject to change, and documentation is under active development. While functional, it's not yet recommended for production use.
+
+## ✨ Features
+
+- 📦 Lightweight wrapper around CFITSIO
+- 🚀 Native Zig interface for FITS file operations
+- 🛠️ Simple and intuitive API design
+- 🔄 Support for reading and manipulating FITS data
+- 🎯 Zero-cost abstractions where possible
+
+## 🎯 Use Cases
+
+- Astronomical data processing
+- Scientific imaging applications
+- FITS file manipulation and analysis
+- Data pipeline integration
+- Research and educational projects
+
+## 📦 Installation
 
 ### Prerequisites
-- **Zig**: Install latest version (0.13.0)
 
-### Setup
-1. Add `zfitsio` to your project by using the Zig package manager:
-   
-   ```sh
-   zig fetch --save git+https://github.com/chrischtel/zfitsio#master
+- **Zig**: Version 0.13.0 or later
+- **C Compiler**: For CFITSIO compilation
+- **Git**: For package fetching
 
-2. Add the following code to your `build.zig` file to link `zfitsio`
+### Quick Start
 
-   ```zig
-    const zfitsio_dep = b.dependency("zfitsio", .{
-        .target = target,
-        .optimize = optimize,
-    });
+1. Add zfitsio to your project:
+```sh
+zig fetch --save git+https://github.com/chrischtel/zfitsio#master
+```
+
+2. Update your `build.zig`:
+```zig
+const zfitsio_dep = b.dependency("zfitsio", .{
+    .target = target,
+    .optimize = optimize,
+});
+
+const zfitsio_artifact = zfitsio_dep.artifact("zfitsio");
+
+exe.root_module.addImport("zfitsio", zfitsio_dep.module("zfitsio"));
+exe.linkLibC();
+exe.linkLibrary(zfitsio_artifact);
+```
+
+## 🖥️ Platform Support
+
+| Platform | Status | Notes |
+|----------|--------|-------|
+| Windows | ✅ Supported | Works with built-in build process |
+| Linux | 🚧 In Progress | Testing on Debian-based systems |
+| macOS | 🚧 In Progress | Both Intel and Apple Silicon |
+
+## 📚 Basic Usage
+
+```zig
+const std = @import("std");
+const zfitsio = @import("zfitsio");
+
+pub fn main() !void {
+    // Open a FITS file
+    var fits = try zfitsio.FitsFile.open("example.fits", .read);
+    defer fits.close();
+
+    // Read header information
+    const header = try fits.readHeader();
     
-    const zfitsio_artifact = zfitsio_dep.artifact("zfitsio");
-    
-    exe.root_module.addImport("zfitsio", zfitsio_dep.module("zfitsio"));
-    exe.linkLibC();
-    exe.linkLibrary(zfitsio_artifact);
-  
+    // More examples coming soon...
+}
+```
+
+## 🗺️ Roadmap
+
+- [ ] Complete cross-platform support
+- [ ] Comprehensive documentation
+- [ ] Extended example collection
+- [ ] Performance optimizations
+- [ ] Additional FITS operations support
+- [ ] Testing framework
+- [ ] CI/CD pipeline
+
+## 🤝 Contributing
+
+Contributions are welcome! Here's how you can help:
+
+- Report bugs and issues
+- Submit pull requests
+- Improve documentation
+- Share usage examples
+- Test on different platforms
+
+## 📄 License
+
+This project is licensed under the Apache 2.0 License - see the [LICENSE](LICENSE) file for details.
+
+## 🙏 Acknowledgments
+
+- CFITSIO development team
+- Zig community
+- All contributors
+
 ---
 
-## Supported Platforms
+<div align="center">
 
-`zfitsio` aims to be cross-platform, but support may vary depending on your setup and dependencies. Below is the list of platforms currently supported:
+**[Website](https://github.com/chrischtel/zfitsio)** • 
+**[Documentation](https://github.com/chrischtel/zfitsio/wiki)** • 
+**[Issue Tracker](https://github.com/chrischtel/zfitsio/issues)**
 
-- ~~**Linux** (tested on Ubuntu and other Debian-based distributions)~~
-- ~~**macOS** (support for Intel and Apple Silicon architectures)~~
-- **Windows** (support when building dependencies from source (built-in build proccess), systemwide-linkage not tested)
-
-Please note that `zfitsio` relies on CFITSIO, which must be properly configured for each platform. Users are encouraged to report any platform-specific issues or contribute to enhancing cross-platform support.
-
-
----
+</div>
