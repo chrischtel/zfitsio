@@ -219,26 +219,26 @@ pub const FITSHeader = struct {
     }
 };
 
-// test "Header security checks" {
-//     std.debug.print("Running header security checks...", .{});
-//     const allocator = std.testing.allocator;
+test "Header security checks" {
+    std.debug.print("Running header security checks...", .{});
+    const allocator = std.testing.allocator;
 
-//     var fits_file = try FitsFile.createFits(allocator, "examples/data/secuewewrity_tdedst.fit");
-//     defer fits_file.close() catch {};
-//     var header = FITSHeader.init(fits_file);
+    var fits_file = try FitsFile.createFits(allocator, "examples/data/secuewewrity_tdedst.fit");
+    defer fits_file.close() catch {};
+    var header = FITSHeader.init(fits_file);
 
-//     // Test 1: First keyword must be SIMPLE
-//     try std.testing.expectError(error.FirstKeywordMustBeSIMPLE, header.insertCardImage(.{
-//         .keyword = "RANDOM",
-//         .value = "value",
-//         .comment = null,
-//     }));
+    // Test 1: First keyword must be SIMPLE
+    try std.testing.expectError(error.FirstKeywordMustBeSIMPLE, header.insertCardImage(.{
+        .keyword = "RANDOM",
+        .value = "value",
+        .comment = null,
+    }));
 
-//     // Test 2: Cannot modify reserved keywords
-//     try header.writeKeyword("SIMPLE", true, null);
-//     try std.testing.expectError(error.ReservedKeywordModification, header.insertCardImage(.{
-//         .keyword = "SIMPLE",
-//         .value = "false",
-//         .comment = null,
-//     }));
-// }
+    // Test 2: Cannot modify reserved keywords
+    try header.writeKeyword("SIMPLE", true, null);
+    try std.testing.expectError(error.ReservedKeywordModification, header.insertCardImage(.{
+        .keyword = "SIMPLE",
+        .value = "false",
+        .comment = null,
+    }));
+}
