@@ -32,8 +32,14 @@ pub const FitsFile = struct {
 
     pub fn createFits(allocator: std.mem.Allocator, path: [*c]const u8) !*FitsFile {
         var status: c_int = 0;
-        const c_path = try u.addNullByte(allocator, @ptrCast(path));
+
+        // Convert input path to slice
+        const path_slice = std.mem.span(path);
+
+        // Add ! prefix and null terminator in one allocation
+        const c_path = try std.fmt.allocPrint(allocator, "!{s}\x00", .{path_slice});
         defer allocator.free(c_path);
+
         var fptr: ?*c.fitsfile = null;
         const result = c.fits_create_file(&fptr, @ptrCast(c_path), &status);
         if (result != 0) return error.CreateFileFailed;

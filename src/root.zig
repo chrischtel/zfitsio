@@ -43,6 +43,7 @@ test "imports" {
     const fitsH = @import("FITSHeader.zig");
     const fitsF = @import("fitsfile.zig");
     const dT = @import("datatypes.zig");
+    const image = @import("Image.zig");
     _ = dT.FitsType;
     _ = dT.getSizeForType;
     _ = dT.getZigType;
@@ -53,4 +54,7 @@ test "imports" {
     _ = fitsH.CardImage;
     _ = fitsH.Coordinates;
     _ = fitsH.HeaderError;
+    _ = image.ImageOperations;
+    _ = image.ImageSection;
+    _ = image.PhysicalCoords;
 }
