@@ -75,9 +75,16 @@ pub fn build(b: *std.Build) !void {
         .optimize = optimize,
     });
 
+    const root_test = b.addTest(.{
+        .root_source_file = b.path("src/root.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+
     fits_header_tests.linkLibC(); // Add this
 
     fitsfile_tests.linkLibC(); // Add this
+    root_test.linkLibC(); // Add this
 
     const wrapper = b.addModule("wrapper", .{
         .root_source_file = b.path("src/wrapper.zig"),
@@ -85,26 +92,35 @@ pub fn build(b: *std.Build) !void {
     fitsfile_tests.root_module.addImport("wrapper", wrapper);
     fits_header_tests.root_module.addImport("wrapper", wrapper);
     fits_header_tests.root_module.addImport("zfitsio", zfitsio);
+    root_test.root_module.addImport("wrapper", wrapper);
+    root_test.root_module.addImport("zfitsio", zfitsio);
+
     if (cfitsio_lib) |lib| {
         fitsfile_tests.linkLibrary(lib);
         fits_header_tests.linkLibrary(lib); // Add this line
+        root_test.linkLibrary(lib);
         if (zlib_lib) |zl| {
             fitsfile_tests.linkLibrary(zl);
             fits_header_tests.linkLibrary(zl); // Add this line
+            root_test.linkLibrary(zl);
         }
     } else {
         fitsfile_tests.linkSystemLibrary("cfitsio");
         fits_header_tests.linkSystemLibrary("cfitsio"); // Add this line
+        root_test.linkSystemLibrary("cfitsio");
         fitsfile_tests.linkSystemLibrary("z");
         fits_header_tests.linkSystemLibrary("z"); // Add this line
+        root_test.linkSystemLibrary("z");
     }
 
     const run_fitsfile_tests = b.addRunArtifact(fitsfile_tests);
     const run_header_tests = b.addRunArtifact(fits_header_tests);
+    const run_root_test = b.addRunArtifact(root_test);
     const test_step = b.step("test", "Run unit tests");
 
     test_step.dependOn(&run_fitsfile_tests.step);
     test_step.dependOn(&run_header_tests.step); // Add this line
+    test_step.dependOn(&run_root_test.step);
 
     const examples = [_]struct {
         name: []const u8,

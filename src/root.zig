@@ -38,3 +38,19 @@ pub fn getKeyword(file: *FitsFile, keyword: []const u8) ![]const u8 {
 
     return try header.getKeyword(keyword);
 }
+
+test "imports" {
+    const fitsH = @import("FITSHeader.zig");
+    const fitsF = @import("fitsfile.zig");
+    const dT = @import("datatypes.zig");
+    _ = dT.FitsType;
+    _ = dT.getSizeForType;
+    _ = dT.getZigType;
+    _ = dT.readFitsData;
+    _ = fitsF.Mode;
+    _ = fitsF.FitsFile;
+    _ = fitsH.FITSHeader;
+    _ = fitsH.CardImage;
+    _ = fitsH.Coordinates;
+    _ = fitsH.HeaderError;
+}

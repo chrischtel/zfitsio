@@ -220,10 +220,10 @@ pub const FITSHeader = struct {
 };
 
 test "Header security checks" {
-    std.debug.print("Running header security checks...\n", .{});
+    std.debug.print("Running header security checks...", .{});
     const allocator = std.testing.allocator;
 
-    var fits_file = try FitsFile.createFits(allocator, "examples/data/security_test.fit");
+    var fits_file = try FitsFile.createFits(allocator, "examples/data/secuewewrity_tdedst.fit");
     defer fits_file.close() catch {};
     var header = FITSHeader.init(fits_file);
 
