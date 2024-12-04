@@ -1,154 +1,129 @@
 const std = @import("std");
-const this = @This();
+const Build = std.Build;
+const Step = Build.Step;
+const This = @This();
 
-var _cfitsio_lib_cache: ?*std.Build.Step.Compile = null;
-fn getCfitsio(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode) *std.Build.Step.Compile {
-    if (_cfitsio_lib_cache) |lib| return lib;
+const LibraryConfig = struct {
+    cache: ?*Step.Compile = null,
+    creator: *const fn (b: *Build, target: Build.ResolvedTarget, optimize: std.builtin.OptimizeMode) ?*Step.Compile,
+    name: []const u8,
+};
 
-    _cfitsio_lib_cache = createCfitsio(b, target, optimize);
-    return _cfitsio_lib_cache.?;
-}
+var lib_cache = struct {
+    cfitsio: ?*Step.Compile = null,
+    zlib: ?*Step.Compile = null,
+}{};
 
-var _zlib_lib_cache: ?*std.Build.Step.Compile = null;
-fn getZlib(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode) *std.Build.Step.Compile {
-    if (_zlib_lib_cache) |lib| return lib;
-
-    _zlib_lib_cache = createZlib(b, target, optimize);
-    return _zlib_lib_cache.?;
-}
-
-fn getModule(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode) *std.Build.Module {
-    if (b.modules.contains("zfitsio")) {
-        return b.modules.get("zfitsio").?;
+fn getLibrary(comptime creator: *const fn (b: *Build, target: Build.ResolvedTarget, optimize: std.builtin.OptimizeMode) ?*Step.Compile, cache: *?*Step.Compile, b: *Build, target: Build.ResolvedTarget, optimize: std.builtin.OptimizeMode) ?*Step.Compile {
+    if (cache.*) |lib| return lib;
+    const result = creator(b, target, optimize);
+    if (result) |lib| {
+        cache.* = lib;
     }
-    return b.addModule("zfitsio", .{
+    return result;
+}
+
+fn getModule(b: *Build, target: Build.ResolvedTarget, optimize: std.builtin.OptimizeMode) *Build.Module {
+    return b.modules.get("zfitsio") orelse b.addModule("zfitsio", .{
         .root_source_file = b.path("src/root.zig"),
         .target = target,
         .optimize = optimize,
     });
 }
 
-pub fn build(b: *std.Build) !void {
+const Example = struct {
+    name: []const u8,
+    path: []const u8,
+};
+
+const examples = [_]Example{
+    .{ .name = "read_fits", .path = "examples/read_fits.zig" },
+    .{ .name = "write_fits", .path = "examples/write_fits.zig" },
+    .{ .name = "modify_header", .path = "examples/modify_header.zig" },
+    .{ .name = "basic_fits", .path = "examples/basic_fits.zig" },
+    .{ .name = "a", .path = "examples/a.zig" },
+    .{ .name = "header_manipulation", .path = "examples/header_manipulation.zig" },
+};
+
+fn setupTest(b: *Build, name: []const u8, target: Build.ResolvedTarget, optimize: std.builtin.OptimizeMode) *Step.Compile {
+    const test_step = b.addTest(.{
+        .root_source_file = b.path(b.fmt("src/{s}.zig", .{name})),
+        .target = target,
+        .optimize = optimize,
+    });
+    test_step.linkLibC();
+    return test_step;
+}
+
+fn linkLibraries(artifact: *Step.Compile, libs: struct { cfitsio: ?*Step.Compile, zlib: ?*Step.Compile }) void {
+    if (libs.cfitsio) |cfits| {
+        artifact.linkLibrary(cfits);
+        if (libs.zlib) |zl| artifact.linkLibrary(zl);
+    } else {
+        artifact.linkSystemLibrary("cfitsio");
+        artifact.linkSystemLibrary("z");
+    }
+}
+
+pub fn build(b: *Build) !void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
     const use_system_libs = b.option(bool, "use-system-libs", "Use system-installed libraries instead of building from source") orelse false;
 
-    const zlib_lib = if (!use_system_libs)
-        getZlib(b, target, optimize)
+    const zlib = if (!use_system_libs)
+        getLibrary(createZlib, &lib_cache.zlib, b, target, optimize)
     else
         null;
 
-    const cfitsio_lib = if (!use_system_libs) blk: {
-        const lib = getCfitsio(b, target, optimize);
-        if (zlib_lib) |zl| lib.linkLibrary(zl);
+    const cfitsio = if (!use_system_libs) blk: {
+        const lib = getLibrary(createCfitsio, &lib_cache.cfitsio, b, target, optimize);
+        if (lib != null and zlib != null) lib.?.linkLibrary(zlib.?);
         break :blk lib;
     } else null;
 
+    const libs = .{
+        .zlib = zlib,
+        .cfitsio = cfitsio,
+    };
+
+    // Setup main library
     const zfitsio_lib = b.addStaticLibrary(.{
         .name = "zfitsio",
         .root_source_file = b.path("src/root.zig"),
         .target = target,
         .optimize = optimize,
     });
-
-    if (cfitsio_lib) |cfits| {
-        zfitsio_lib.linkLibrary(cfits);
-        if (zlib_lib) |zl| zfitsio_lib.linkLibrary(zl);
-    } else {
-        zfitsio_lib.linkSystemLibrary("cfitsio");
-        zfitsio_lib.linkSystemLibrary("z");
-    }
-
+    linkLibraries(zfitsio_lib, libs);
     b.installArtifact(zfitsio_lib);
 
-    const zfitsio = this.getModule(b, target, optimize);
-
-    const fitsfile_tests = b.addTest(.{
-        .root_source_file = b.path("src/fitsfile.zig"),
-        .target = target,
-        .optimize = optimize,
-    });
-
-    const fits_header_tests = b.addTest(.{
-        .root_source_file = b.path("src/FITSHeader.zig"),
-        .target = target,
-        .optimize = optimize,
-    });
-
-    const root_test = b.addTest(.{
-        .root_source_file = b.path("src/root.zig"),
-        .target = target,
-        .optimize = optimize,
-    });
-
-    const image_tests = b.addTest(.{
-        .root_source_file = b.path("src/Image.zig"),
-        .target = target,
-        .optimize = optimize,
-    });
-
-    fits_header_tests.linkLibC(); // Add this
-
-    fitsfile_tests.linkLibC(); // Add this
-    root_test.linkLibC(); // Add this
-    image_tests.linkLibC(); // Add this
-
+    // Setup module
+    const zfitsio = getModule(b, target, optimize);
     const wrapper = b.addModule("wrapper", .{
         .root_source_file = b.path("src/wrapper.zig"),
     });
-    fitsfile_tests.root_module.addImport("wrapper", wrapper);
-    fits_header_tests.root_module.addImport("wrapper", wrapper);
-    fits_header_tests.root_module.addImport("zfitsio", zfitsio);
-    root_test.root_module.addImport("wrapper", wrapper);
-    root_test.root_module.addImport("zfitsio", zfitsio);
-    image_tests.root_module.addImport("wrapper", wrapper);
-    image_tests.root_module.addImport("zfitsio", zfitsio);
 
-    if (cfitsio_lib) |lib| {
-        fitsfile_tests.linkLibrary(lib);
-        fits_header_tests.linkLibrary(lib); // Add this line
-        root_test.linkLibrary(lib);
-        image_tests.linkLibrary(lib);
-        if (zlib_lib) |zl| {
-            fitsfile_tests.linkLibrary(zl);
-            fits_header_tests.linkLibrary(zl); // Add this line
-            root_test.linkLibrary(zl);
-            image_tests.linkLibrary(zl);
-        }
-    } else {
-        fitsfile_tests.linkSystemLibrary("cfitsio");
-        fits_header_tests.linkSystemLibrary("cfitsio"); // Add this line
-        root_test.linkSystemLibrary("cfitsio");
-        fitsfile_tests.linkSystemLibrary("z");
-        fits_header_tests.linkSystemLibrary("z"); // Add this line
-        root_test.linkSystemLibrary("z");
+    // Setup tests
+    const test_names = [_][]const u8{ "fitsfile", "FITSHeader", "root", "Image" };
+    var test_steps = std.ArrayList(*Step.Run).init(b.allocator);
+    defer test_steps.deinit();
+
+    for (test_names) |name| {
+        const test_exe = setupTest(b, name, target, optimize);
+        test_exe.root_module.addImport("wrapper", wrapper);
+        test_exe.root_module.addImport("zfitsio", zfitsio);
+        linkLibraries(test_exe, libs);
+
+        const run_test = b.addRunArtifact(test_exe);
+        try test_steps.append(run_test);
     }
 
-    const run_fitsfile_tests = b.addRunArtifact(fitsfile_tests);
-    const run_header_tests = b.addRunArtifact(fits_header_tests);
-    const run_root_test = b.addRunArtifact(root_test);
-    const run_image_tests = b.addRunArtifact(image_tests);
     const test_step = b.step("test", "Run unit tests");
+    for (test_steps.items) |run_test| {
+        test_step.dependOn(&run_test.step);
+    }
 
-    test_step.dependOn(&run_fitsfile_tests.step);
-    test_step.dependOn(&run_header_tests.step); // Add this line
-    test_step.dependOn(&run_root_test.step);
-    test_step.dependOn(&run_image_tests.step);
-
-    const examples = [_]struct {
-        name: []const u8,
-        path: []const u8,
-    }{
-        .{ .name = "read_fits", .path = "examples/read_fits.zig" },
-        .{ .name = "write_fits", .path = "examples/write_fits.zig" },
-        .{ .name = "modify_header", .path = "examples/modify_header.zig" },
-        .{ .name = "basic_fits", .path = "examples/basic_fits.zig" },
-        .{ .name = "a", .path = "examples/a.zig" },
-        .{ .name = "header_manipulation", .path = "examples/header_manipulation.zig" },
-    };
-
+    // Setup examples
     const examples_step = b.step("examples", "Build examples");
-
     for (examples) |ex| {
         const exe = b.addExecutable(.{
             .name = ex.name,
@@ -158,16 +133,8 @@ pub fn build(b: *std.Build) !void {
         });
 
         exe.linkLibC();
-        if (cfitsio_lib) |lib| {
-            exe.linkLibrary(lib);
-            if (zlib_lib) |zl| exe.linkLibrary(zl);
-        } else {
-            exe.linkSystemLibrary("cfitsio");
-            exe.linkSystemLibrary("z");
-        }
-
+        linkLibraries(exe, libs);
         exe.root_module.addImport("zfitsio", zfitsio);
-
         examples_step.dependOn(&exe.step);
 
         const run_cmd = b.addRunArtifact(exe);
