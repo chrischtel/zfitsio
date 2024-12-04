@@ -1,4 +1,4 @@
-## [Unreleased] - v0.2.0 w
+## [Unreleased] - v0.2.0 
 ### Added
 - Header Manipulation
  - Write/update header keywords with support for:
