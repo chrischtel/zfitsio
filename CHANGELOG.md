@@ -1,4 +1,4 @@
-## [Unreleased] - v0.2.0
+## [Unreleased] - v0.2.0 w
 ### Added
 - Header Manipulation
  - Write/update header keywords with support for:
@@ -13,10 +13,25 @@
  - Memory safe string handling
  - Header keyword reading with error handling
 
+- New `ImageOperations` struct for handling 2D image data from FITS files
+- Support for 32-bit and 64-bit floating point image data
+- Image section extraction with `getSection()` method
+- World Coordinate System (WCS) support through `PhysicalCoords` struct
+- Methods for reading/writing image data to FITS files
+- Binary data export capability with `writeImage()`
+- Integration tests for FITS file operations
+
+- Data type support for FITS binary tables with `FitsType` enum
+- Automatic conversion between FITS and Zig types
+- Binary data parsing with proper byte ordering
+- Generic `readFitsData` function supporting all FITS data types
+- Unit tests for type conversions and data parsing
+
 ### Changed
 - Improved error handling for FITS operations
 - Enhanced memory management for string values
 - Updated examples to demonstrate header manipulation
+- Updated `build.zig` (refactored)
 
 ## [0.1.0] - 2024-03-xx
 ### Added
