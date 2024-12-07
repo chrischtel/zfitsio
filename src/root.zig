@@ -17,7 +17,7 @@ pub const FITSHeader = @import("FITSHeader.zig").FITSHeader;
 pub const DataTypes = @import("datatypes.zig");
 
 /// Image processing and manipulation functionality for FITS image data.
-/// Provides operations for reading image data, pixel manipulation, and basic image processing.
+/// Provides operations for reading image data, pixel manipulation, and basic image processing.d
 pub const ImageOperations = @import("Image.zig");
 
 // Re-export commonly used constants from cfitsio
