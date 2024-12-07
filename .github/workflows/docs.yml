@@ -2,7 +2,7 @@ name: Build and Push API Docs
 
 on:
   push:
-    branches: [ main ]
+    branches: [ stable ]
     paths:
       - 'src/**/*.zig'
 
