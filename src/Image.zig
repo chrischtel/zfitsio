@@ -304,7 +304,7 @@ pub const ImageOperations = struct {
     }
 
     /// Sets WCS parameters for a specific axis
-    /// axis must be 1 (X) or 2 (Y)
+    /// axis must be 1 (X) or 2 (Y) for FITS image data
     /// Returns error.InvalidAxis for other axis values
     pub fn setPhysicalAxis(self: *ImageOperations, axis: u8, crval: f64, cdelt: f64, crpix: f64) !void {
         const coords = PhysicalCoords{ .crval = crval, .cdelt = cdelt, .crpix = crpix };
