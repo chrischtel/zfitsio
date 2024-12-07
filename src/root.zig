@@ -1,43 +1,24 @@
+//! This module provides functions for retrieving the current date and
+//! time with varying degrees of precision and accuracy. It does not
+//! depend on libc, but will use functions from it if available.
 const std = @import("std");
 const c = @import("util/util.zig").c;
 
-pub const FitsFile = @import("fitsfile.zig").FitsFile;
-pub const FITSHeader = @import("FITSHeader.zig").FITSHeader;
+/// Main FITS file handling module that provides core functionality for reading and writing FITS files.
+/// Includes operations for opening, reading, and manipulating FITS files.
+pub const FitsFile = @import("fitsfile.zig");
 
-// Re-export commonly used constants from cfitsio
-pub const Mode = struct {
-    pub const READ_ONLY: c_int = c.READONLY;
-    pub const READ_WRITE: c_int = c.READWRITE;
-};
+/// FITS header manipulation module that handles reading, writing, and modifying FITS headers.
+/// Provides functionality for working with FITS keywords, values, and comments.
+pub const FITSHeader = @import("FITSHeader.zig");
 
-pub const DataType = struct {
-    pub const BYTE: c_int = c.TBYTE;
-    pub const SHORT: c_int = c.TSHORT;
-    pub const INT: c_int = c.TINT;
-    pub const LONG: c_int = c.TLONG;
-    pub const FLOAT: c_int = c.TFLOAT;
-    pub const DOUBLE: c_int = c.TDOUBLE;
-};
+/// Contains definitions and utilities for handling FITS data types.
+/// Includes type conversion, validation, and size calculations for FITS data formats.
+pub const DataTypes = @import("datatypes.zig");
 
-// Custom errors
-pub const FitsError = error{
-    OpenFileFailed,
-    CloseFileFailed,
-    ReadImageFailed,
-    InvalidFile,
-    InvalidImageData,
-};
-
-// High-level helper functions
-pub fn openFits(allocator: std.mem.Allocator, path: []const u8, mode: c_int) !*FitsFile {
-    return FitsFile.open(allocator, path.ptr, mode);
-}
-
-pub fn getKeyword(file: *FitsFile, keyword: []const u8) ![]const u8 {
-    var header = FITSHeader.init(file);
-
-    return try header.getKeyword(keyword);
-}
+/// Image processing and manipulation functionality for FITS image data.
+/// Provides operations for reading image data, pixel manipulation, and basic image processing.
+pub const ImageOperations = @import("Image.zig");
 
 test "imports" {
     const fitsH = @import("FITSHeader.zig");

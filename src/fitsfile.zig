@@ -4,16 +4,30 @@ const fitsheader = @import("FITSHeader.zig").FITSHeader;
 
 const c = u.c;
 
+/// Defines access modes for FITS files
+/// Controls read/write permissions for both header and data
 pub const Mode = struct {
+    /// If true, file is opened in read-only mode
     READ_ONLY: bool = true,
+    /// If true, header modifications are allowed
     ALLOW_HEADER_MODS: bool = false,
+    /// If true, data modifications are allowed
     ALLOW_DATA_MODS: bool = false,
 };
 
+/// Core struct for FITS file operations
+/// Provides functions for file I/O, metadata retrieval, and validation
 pub const FitsFile = struct {
+    /// Pointer to the underlying CFITSIO file structure
     fptr: *c.fitsfile,
+    /// Memory allocator used for dynamic allocations
     allocator: std.mem.Allocator,
 
+    /// Validates that all required FITS headers are present
+    /// Returns true if all required headers exist, false otherwise
+    /// Parameters:
+    ///   - self: Pointer to FitsFile instance
+    /// Returns: bool indicating if all required headers are present
     pub fn validateRequiredHeaders(self: *FitsFile) !bool {
         var header = fitsheader.init(self);
         const required = [_][]const u8{ "SIMPLE", "BITPIX", "NAXIS" };
@@ -23,13 +37,20 @@ pub const FitsFile = struct {
 
         return true;
     }
-
+    /// Checks if header modifications are allowed based on file mode
+    /// Returns error.HeaderModificationNotAllowed if modifications are not permitted
+    /// Parameters:
+    ///   - self: Pointer to FitsFile instance
     pub fn canModifyHeaders(self: *FitsFile) !void {
         if (self.mode.READ_ONLY or !self.mode.ALLOW_HEADER_MODS) {
             return error.HeaderModificationNotAllowed;
         }
     }
-
+    /// Creates a new FITS file
+    /// Parameters:
+    ///   - allocator: Memory allocator for dynamic allocations
+    ///   - path: File path for the new FITS file
+    /// Returns: Pointer to new FitsFile instance or error
     pub fn createFits(allocator: std.mem.Allocator, path: [*c]const u8) !*FitsFile {
         var status: c_int = 0;
 
@@ -51,7 +72,12 @@ pub const FitsFile = struct {
         };
         return fits;
     }
-
+    /// Opens an existing FITS file
+    /// Parameters:
+    ///   - allocator: Memory allocator for dynamic allocations
+    ///   - path: Path to existing FITS file
+    ///   - mode: File access mode (e.g., READONLY, READWRITE)
+    /// Returns: Pointer to FitsFile instance or error
     pub fn open(allocator: std.mem.Allocator, path: [*c]const u8, mode: c_int) !*FitsFile {
         var status: c_int = 0;
         const c_path = try u.addNullByte(allocator, path);
@@ -73,14 +99,21 @@ pub const FitsFile = struct {
 
         return fits;
     }
-
+    /// Closes an open FITS file and frees associated resources
+    /// Parameters:
+    ///   - self: Pointer to FitsFile instance
+    /// Returns: error if close operation fails
     pub fn close(self: *FitsFile) !void {
         var status: c_int = 0;
         const result = c.fits_close_file(self.fptr, &status);
         self.allocator.destroy(self);
         if (result != 0) return error.CloseFileFailed;
     }
-
+    /// Reads image data from the current HDU
+    /// Currently supports only 32-bit integer data
+    /// Parameters:
+    ///   - self: Pointer to FitsFile instance
+    /// Returns: Slice containing image data or error
     pub fn readImage(self: *FitsFile) ![]i32 {
         var status: c_int = 0;
         var anynull: c_int = 0;
@@ -94,7 +127,10 @@ pub const FitsFile = struct {
 
         return img[0..];
     }
-
+    /// Gets the total number of HDUs (Header Data Units) in the file
+    /// Parameters:
+    ///   - self: Pointer to FitsFile instance
+    /// Returns: Number of HDUs or error
     pub fn getHDUCount(self: *FitsFile) !usize {
         var hdu_count: c_long = 0;
         var status: c_int = 0;
@@ -106,7 +142,11 @@ pub const FitsFile = struct {
 
         return @intCast(hdu_count);
     }
-
+    /// Gets the dimensions of the current image HDU
+    /// Currently supports only 2D images
+    /// Parameters:
+    ///   - self: Pointer to FitsFile instance
+    /// Returns: Array containing [width, height] or error
     pub fn getImageDimensions(self: *FitsFile) ![2]usize {
         var status: c_int = 0;
         const naxis = 2;
@@ -122,7 +162,10 @@ pub const FitsFile = struct {
             @intCast(dims[1]),
         };
     }
-
+    /// Flushes any pending changes to disk
+    /// Parameters:
+    ///   - self: Pointer to FitsFile instance
+    /// Returns: error if flush operation fails
     pub fn flush(self: *FitsFile) !void {
         var status: c_int = 0;
         const result = c.fits_flush_file(self.fptr, &status);

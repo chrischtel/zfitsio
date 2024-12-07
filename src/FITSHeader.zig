@@ -2,33 +2,55 @@ const std = @import("std");
 const FitsFile = @import("fitsfile.zig").FitsFile;
 const u = @import("util/util.zig");
 const c = u.c;
+
+/// Errors that can occur during FITS header operations
 pub const HeaderError = error{
+    /// Failed to read a keyword from the FITS header
     ReadKeywordFailed,
+    /// Failed to write a keyword to the FITS header
     WriteKeywordFailed,
+    /// Requested keyword was not found in the header
     KeyNotFound,
+    /// Keyword format does not conform to FITS standard
     InvalidKeywordFormat,
+    /// Attempted to write an unsupported data type
     InvalidDataType,
+    /// Memory allocation failed
     AllocateFailed,
 };
 
+/// Represents a FITS header card image containing keyword, value, and optional comment
 pub const CardImage = struct {
+    /// Keyword name (up to 8 characters)
     keyword: []const u8,
+    /// Value associated with the keyword
     value: []const u8,
+    /// Optional comment describing the keyword-value pair
     comment: ?[]const u8,
 };
 
+/// Represents astronomical coordinates in the FITS header
 pub const Coordinates = struct {
+    /// Right ascension in degrees
     ra: f64,
+    /// Declination in degrees
     dec: f64,
+    /// Reference equinox for the coordinates
     equinox: f64,
 };
 
+/// Main struct for handling FITS header operations
 pub const FITSHeader = struct {
     fits_file: *FitsFile,
     allocator: std.mem.Allocator,
 
     const Self = @This();
 
+    /// Validates a card image before writing to the header
+    /// Returns error if the keyword is reserved or if SIMPLE is not the first keyword
+    /// Parameters:
+    ///   - card: CardImage to validate
+    /// Returns: error if validation fails
     fn validateCard(self: *Self, card: CardImage) !void {
         if (isReservedKeyword(card.keyword)) return error.ReservedKeywordModification;
 
@@ -40,6 +62,11 @@ pub const FITSHeader = struct {
             return error.FirstKeywordMustBeSIMPLE;
         }
     }
+
+    /// Checks if a keyword is in the reserved list
+    /// Parameters:
+    ///   - keyword: Keyword to check
+    /// Returns: true if keyword is reserved, false otherwise
     pub fn isReservedKeyword(keyword: []const u8) bool {
         const reserved = [_][]const u8{ "SIMPLE", "BITPIX", "NAXIS", "EXTEND" };
         for (reserved) |k| {
@@ -48,6 +75,10 @@ pub const FITSHeader = struct {
         return false;
     }
 
+    /// Initializes a new FITSHeader instance
+    /// Parameters:
+    ///   - fitsfile: Pointer to an open FITS file
+    /// Returns: New FITSHeader instance
     pub fn init(fitsfile: *FitsFile) Self {
         return .{
             .fits_file = fitsfile,
@@ -55,6 +86,10 @@ pub const FITSHeader = struct {
         };
     }
 
+    /// Inserts a new card image into the FITS header
+    /// Parameters:
+    ///   - card: CardImage to insert
+    /// Returns: error if operation fails
     pub fn insertCardImage(self: *Self, card: CardImage) !void {
         try self.validateCard(card);
         var status: c_int = 0;
@@ -66,14 +101,28 @@ pub const FITSHeader = struct {
         if (result != 0) return error.CardImageOperationFailed;
     }
 
+    /// Updates an existing card image in the header
+    /// Parameters:
+    ///   - keyword: Keyword to update
+    ///   - new_card: New card image data
+    /// Returns: error if operation fails
     pub fn updateCardImage(self: *Self, _: []const u8, new_card: CardImage) !void {
         try self.validateCard(new_card);
         try self.writeKeyword(new_card.keyword, new_card.value, new_card.comment);
     }
+
+    /// Deletes a card image from the header
+    /// Parameters:
+    ///   - keyword: Keyword to delete
+    /// Returns: error if operation fails
     pub fn deleteCardImage(self: *Self, keyword: []const u8) !void {
         try self.deleteKeyword(keyword);
     }
 
+    /// Formats a card image according to FITS standard (80-character format)
+    /// Parameters:
+    ///   - card: CardImage to format
+    /// Returns: Formatted string or error
     fn formatCardImage(self: *Self, card: CardImage) ![]u8 {
         var buf = try self.allocator.alloc(u8, 80);
         errdefer self.allocator.free(buf);
@@ -96,15 +145,30 @@ pub const FITSHeader = struct {
 
         return buf;
     }
-
+    /// Writes a string value to the header
+    /// Parameters:
+    ///   - keyword: Keyword to write
+    ///   - value: String value
+    ///   - comment: Optional comment
+    /// Returns: error if operation fails
     pub fn writeString(self: *Self, keyword: []const u8, value: []const u8, comment: ?[]const u8) !void {
         return self.writeKeyword(keyword, value, comment);
     }
-
+    /// Writes a logical (boolean) value to the header
+    /// Parameters:
+    ///   - keyword: Keyword to write
+    ///   - value: Boolean value
+    ///   - comment: Optional comment
+    /// Returns: error if operation fails
     pub fn writeLogical(self: *Self, keyword: []const u8, value: bool, comment: ?[]const u8) !void {
         return self.writeKeyword(keyword, value, comment);
     }
-
+    /// Generic function to write any supported type to the header
+    /// Parameters:
+    ///   - keyword: Keyword to write
+    ///   - value: Value of any supported type (string, bool, integer, float)
+    ///   - comment: Optional comment
+    /// Returns: error if operation fails or type is unsupported
     pub fn writeKeyword(self: *Self, keyword: []const u8, value: anytype, comment: ?[]const u8) !void {
         var status: c_int = 0;
         const c_keyword = @as([*c]const u8, @ptrCast(keyword));
@@ -139,7 +203,10 @@ pub const FITSHeader = struct {
             },
         }
     }
-
+    /// Deletes a keyword from the header
+    /// Parameters:
+    ///   - keyword: Keyword to delete
+    /// Returns: error if deletion fails
     pub fn deleteKeyword(self: *Self, keyword: []const u8) !void {
         var status: c_int = 0;
         const c_keyword = try u.addNullByte(self.allocator, @ptrCast(keyword));
@@ -148,7 +215,10 @@ pub const FITSHeader = struct {
         const result = c.fits_delete_key(self.fits_file.fptr, @ptrCast(c_keyword), &status);
         if (result != 0) return error.DeleteKeywordFailed;
     }
-
+    /// Retrieves the value of a keyword from the header
+    /// Parameters:
+    ///   - keyword: Keyword to retrieve
+    /// Returns: Value as string or error if not found
     pub fn getKeyword(self: *Self, keyword: []const u8) ![]const u8 {
         var status: c_int = 0;
         const c_keyword = try u.addNullByte(self.allocator, @ptrCast(keyword));
@@ -185,7 +255,10 @@ pub const FITSHeader = struct {
         @memcpy(value, value_buf[start..end]);
         return value;
     }
-
+    /// Checks if a keyword exists in the header
+    /// Parameters:
+    ///   - keyword: Keyword to check
+    /// Returns: true if keyword exists, false if not found, error for other failures
     pub fn hasKeyword(self: *Self, keyword: []const u8) !bool {
         return if (self.getKeyword(keyword)) |_| true else |err| switch (err) {
             error.KeyNotFound => false,
@@ -193,6 +266,8 @@ pub const FITSHeader = struct {
         };
     }
 
+    /// Prints all header entries to stdout for debugging
+    /// Returns: error if reading headers fails
     pub fn printAllHeaders(self: *Self) !void {
         var status: c_int = 0;
         var nkeys: c_int = 0;

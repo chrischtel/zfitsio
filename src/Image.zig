@@ -5,12 +5,18 @@ const FITSHeader = @import("FITSHeader.zig").FITSHeader;
 
 const c = @import("util/util.zig").c;
 
+/// Represents a rectangular section of an image defined by x and y coordinates
+/// Used for extracting subregions from larger images
 pub const ImageSection = struct {
     x_start: usize,
     x_end: usize,
     y_start: usize,
     y_end: usize,
 
+    /// Validates that the section boundaries are within the given image dimensions
+    /// and that start coordinates are less than end coordinates
+    /// Returns error.SectionOutOfBounds if coordinates exceed image dimensions
+    /// Returns error.InvalidSectionBounds if start >= end for either axis
     pub fn validate(self: ImageSection, width: usize, height: usize) !void {
         if (self.x_end > width or self.y_end > height) {
             return error.SectionOutOfBounds;
@@ -21,20 +27,27 @@ pub const ImageSection = struct {
     }
 };
 
+/// Represents World Coordinate System (WCS) parameters for converting between
+/// pixel coordinates and physical world coordinates
 pub const PhysicalCoords = struct {
     crval: f64,
     cdelt: f64,
     crpix: f64,
 
+    /// Converts from pixel coordinate to world coordinate using WCS parameters
     pub fn pixelToWorld(self: PhysicalCoords, pixel: f64) f64 {
         return self.crval + (pixel - self.crpix) * self.cdelt;
     }
 
+    /// Converts from world coordinate to pixel coordinate using WCS parameters
     pub fn worldToPixel(self: PhysicalCoords, world: f64) f64 {
         return (world - self.crval) / self.cdelt + self.crpix;
     }
 };
 
+/// Main struct for handling FITS image operations
+/// Supports 32-bit and 64-bit floating point image data
+/// Includes WCS information for coordinate transformations
 pub const ImageOperations = struct {
     allocator: std.mem.Allocator,
     width: usize,
@@ -47,6 +60,9 @@ pub const ImageOperations = struct {
     x_axis: PhysicalCoords,
     y_axis: PhysicalCoords,
 
+    /// Creates a new ImageOperations instance with specified dimensions and data type
+    /// Allocates memory for image data and initializes WCS parameters to default values
+    /// Returns error.UnsupportedDataType if data_type is not TFLOAT or TDOUBLE
     pub fn init(allocator: std.mem.Allocator, width: usize, height: usize, data_type: FitsType) !ImageOperations {
         if (data_type != .TFLOAT and data_type != .TDOUBLE) {
             return error.UnsupportedDataType;
@@ -77,6 +93,9 @@ pub const ImageOperations = struct {
         return self;
     }
 
+    /// Creates an ImageOperations instance from an existing FITS file
+    /// Reads image data and WCS information from the file
+    /// Returns error if image type is unsupported or reading fails
     pub fn fromFitsFile(allocator: std.mem.Allocator, fits: *FitsFile) !ImageOperations {
         // Get image dimensions
         const dims = try fits.getImageDimensions();
@@ -118,6 +137,8 @@ pub const ImageOperations = struct {
         return img;
     }
 
+    /// Reads World Coordinate System (WCS) parameters from FITS header
+    /// Sets default values if WCS keywords are not found
     fn readWCSFromHeader(self: *ImageOperations, fits: *FitsFile) !void {
         var header = FITSHeader.init(fits);
 
@@ -160,6 +181,8 @@ pub const ImageOperations = struct {
         }
     }
 
+    /// Saves the image data and WCS information to a FITS file
+    /// Returns error if writing fails
     pub fn saveToFits(self: *const ImageOperations, fits: *FitsFile) !void {
         var status: c_int = 0;
 
@@ -191,6 +214,7 @@ pub const ImageOperations = struct {
         try fits.flush();
     }
 
+    /// Frees allocated memory for image data
     pub fn deinit(self: *ImageOperations) void {
         switch (self.data_type) {
             .TFLOAT => self.allocator.free(self.data.f32),
@@ -199,6 +223,8 @@ pub const ImageOperations = struct {
         }
     }
 
+    /// Writes raw image data to a file in big-endian byte order
+    /// Useful for debugging or external processing
     pub fn writeImage(self: *const ImageOperations, filename: []const u8) !void {
         const file = try std.fs.cwd().createFile(filename, .{});
         defer file.close();
@@ -223,6 +249,9 @@ pub const ImageOperations = struct {
         }
     }
 
+    /// Extracts a rectangular section of the image and returns it as a new ImageOperations instance
+    /// Preserves WCS information and updates it for the new section
+    /// Returns error if section coordinates are invalid
     pub fn getSection(self: *const ImageOperations, section: ImageSection) !ImageOperations {
         try section.validate(self.width, self.height);
 
@@ -274,6 +303,9 @@ pub const ImageOperations = struct {
         return result;
     }
 
+    /// Sets WCS parameters for a specific axis
+    /// axis must be 1 (X) or 2 (Y)
+    /// Returns error.InvalidAxis for other axis values
     pub fn setPhysicalAxis(self: *ImageOperations, axis: u8, crval: f64, cdelt: f64, crpix: f64) !void {
         const coords = PhysicalCoords{ .crval = crval, .cdelt = cdelt, .crpix = crpix };
         switch (axis) {

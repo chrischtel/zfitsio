@@ -94,6 +94,16 @@ pub fn build(b: *Build) !void {
         .optimize = optimize,
     });
     linkLibraries(zfitsio_lib, libs);
+
+    const docs = b.addInstallDirectory(.{
+        .source_dir = zfitsio_lib.getEmittedDocs(),
+        .install_dir = .prefix,
+        .install_subdir = "docs",
+    });
+
+    const docs_step = b.step("docs", "Generate documentation");
+    docs_step.dependOn(&docs.step);
+
     b.installArtifact(zfitsio_lib);
 
     // Setup module
