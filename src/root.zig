@@ -14,7 +14,7 @@ pub const FITSHeader = @import("FITSHeader.zig").FITSHeader;
 
 /// Contains definitions and utilities for handling FITS data types.
 /// Includes type conversion, validation, and size calculations for FITS data formats.
-pub const DataTypes = @import("datatypes.zig");
+pub const DataTypes = @import("datatypes.zig").FitsType;
 
 /// Image processing and manipulation functionality for FITS image data.
 /// Provides operations for reading image data, pixel manipulation, and basic image processing.
@@ -27,7 +27,6 @@ pub const Mode = struct {
     pub const READ_ONLY: c_int = c.READONLY;
     pub const READ_WRITE: c_int = c.READWRITE;
 };
-
 
 pub fn openFits(allocator: std.mem.Allocator, path: []const u8, mode: c_int) !*FitsFile {
     return FitsFile.open(allocator, path.ptr, mode);

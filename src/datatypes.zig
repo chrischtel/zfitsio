@@ -33,6 +33,10 @@ pub const FitsType = enum(i32) {
     TFLOAT = 42,
     /// 64-bit floating point number
     TDOUBLE = 82,
+    UTBYTE,
+    UTSHORT,
+    UTINT,
+    UTLONG,
 };
 
 /// Maps a FITS data type to its corresponding Zig type.
@@ -44,10 +48,15 @@ pub const FitsType = enum(i32) {
 pub fn getZigType(comptime datatype: FitsType) type {
     return switch (datatype) {
         .TBIT, .TLOGICAL => bool,
-        .TBYTE, .TSTRING => u8,
+        .TBYTE => i8,
+        .TSTRING => u8,
         .TSHORT => i16,
         .TINT => i32,
         .TLONG => i64,
+        .UTBYTE => u8,
+        .UTSHORT => u16,
+        .UTINT => u32,
+        .UTLONG => u64,
         .TFLOAT => f32,
         .TDOUBLE => f64,
     };
@@ -90,10 +99,15 @@ pub fn readFitsData(
         const slice = data[i * size .. (i + 1) * size];
         result[i] = switch (datatype) {
             .TBIT, .TLOGICAL => slice[0] != 0,
-            .TBYTE, .TSTRING => slice[0],
+            .TBYTE => @bitCast(slice[0]), // signed 8-bit
+            .TSTRING => slice[0], // unsigned 8-bit
+            .UTBYTE => slice[0], // unsigned 8-bit
             .TSHORT => @byteSwap(std.mem.readInt(i16, slice[0..2], .little)),
+            .UTSHORT => @byteSwap(std.mem.readInt(u16, slice[0..2], .little)),
             .TINT => @byteSwap(std.mem.readInt(i32, slice[0..4], .little)),
+            .UTINT => @byteSwap(std.mem.readInt(u32, slice[0..4], .little)),
             .TLONG => @byteSwap(std.mem.readInt(i64, slice[0..8], .little)),
+            .UTLONG => @byteSwap(std.mem.readInt(u64, slice[0..8], .little)),
             .TFLOAT => @bitCast(@byteSwap(std.mem.readInt(u32, slice[0..4], .little))),
             .TDOUBLE => @bitCast(@byteSwap(std.mem.readInt(u64, slice[0..8], .little))),
         };
@@ -109,10 +123,10 @@ pub fn readFitsData(
 /// Returns: Size in bytes for the specified type
 pub fn getSizeForType(datatype: FitsType) usize {
     return switch (datatype) {
-        .TBIT, .TLOGICAL, .TBYTE, .TSTRING => 1,
-        .TSHORT => 2,
-        .TINT, .TFLOAT => 4,
-        .TLONG, .TDOUBLE => 8,
+        .TBIT, .TLOGICAL, .TBYTE, .TSTRING, .UTBYTE => 1,
+        .TSHORT, .UTSHORT => 2,
+        .TINT, .TFLOAT, .UTINT => 4,
+        .TLONG, .TDOUBLE, .UTLONG => 8,
     };
 }
 
