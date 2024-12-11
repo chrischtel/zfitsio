@@ -5,6 +5,53 @@ const FITSHeader = @import("FITSHeader.zig").FITSHeader;
 
 const c = @import("util/util.zig").c;
 
+/// Comprehensive error set for image operations
+pub const ImageError = error{
+    // File operations
+    ReadImageFailed,
+    WriteImageFailed,
+    InvalidImageType,
+    UnsupportedImageType,
+    UnsupportedBitpix,
+
+    OutOfMemory,
+
+    // Data operations
+    NullData,
+    InvalidDataSize,
+    InvalidDimensions,
+    DataAllocationFailed,
+
+    // Value errors
+    NaNValue,
+    InfinityValue,
+    ValueOutOfRange,
+
+    // WCS errors
+    InvalidWCSParameters,
+    WCSReadError,
+    WCSWriteError,
+
+    // Section errors
+    SectionOutOfBounds,
+    InvalidSectionBounds,
+
+    // Memory errors
+    AllocationFailed,
+    DeallocationFailed,
+
+    // General errors
+    EmptyData,
+    InvalidOperation,
+};
+
+/// Add error context to operations
+pub const ErrorContext = struct {
+    operation: []const u8,
+    details: ?[]const u8 = null,
+    source_error: ?anyerror = null,
+};
+
 /// Represents a rectangular section of an image defined by x and y coordinates
 /// Used for extracting subregions from larger images
 pub const ImageSection = struct {
@@ -15,14 +62,14 @@ pub const ImageSection = struct {
 
     /// Validates that the section boundaries are within the given image dimensions
     /// and that start coordinates are less than end coordinates
-    /// Returns error.SectionOutOfBounds if coordinates exceed image dimensions
-    /// Returns error.InvalidSectionBounds if start >= end for either axis
+    /// Returns ImageError.SectionOutOfBounds if coordinates exceed image dimensions
+    /// Returns ImageError.InvalidSectionBounds if start >= end for either axis
     pub fn validate(self: ImageSection, width: usize, height: usize) !void {
         if (self.x_end > width or self.y_end > height) {
-            return error.SectionOutOfBounds;
+            return ImageError.SectionOutOfBounds;
         }
         if (self.x_start >= self.x_end or self.y_start >= self.y_end) {
-            return error.InvalidSectionBounds;
+            return ImageError.InvalidSectionBounds;
         }
     }
 };
@@ -70,10 +117,10 @@ pub const ImageOperations = struct {
 
     /// Creates a new ImageOperations instance with specified dimensions and data type
     /// Allocates memory for image data and initializes WCS parameters to default values
-    /// Returns error.UnsupportedDataType if data_type is not TFLOAT or TDOUBLE
+    /// Returns ImageError.UnsupportedDataType if data_type is not TFLOAT or TDOUBLE
     pub fn init(allocator: std.mem.Allocator, width: usize, height: usize, data_type: FitsType) !ImageOperations {
         // if (data_type != .TFLOAT and data_type != .TDOUBLE) {
-        //     return error.UnsupportedDataType;
+        //     return ImageError.UnsupportedDataType;
         // }
         std.debug.print("Initializing with data_type: {}\n", .{data_type}); // Add this
 
@@ -88,11 +135,11 @@ pub const ImageOperations = struct {
         };
         // Remove this check since we now support more types
         // if (data_type != .TFLOAT and data_type != .TDOUBLE) {
-        //     return error.UnsupportedDataType;
+        //     return ImageError.UnsupportedDataType;
         // }
 
         switch (data_type) {
-            .TBIT, .TLOGICAL, .TSTRING => return error.UnsupportedImageType,
+            .TBIT, .TLOGICAL, .TSTRING => return ImageError.UnsupportedImageType,
             .TBYTE => {
                 self.data = .{ .i8 = try allocator.alloc(i8, width * height) };
                 @memset(self.data.i8, 0);
@@ -143,13 +190,16 @@ pub const ImageOperations = struct {
     /// Returns error if image type is unsupported or reading fails
     pub fn fromFitsFile(allocator: std.mem.Allocator, fits: *FitsFile) !ImageOperations {
         // Get image dimensions
-        const dims = try fits.getImageDimensions();
+        //const dims = try fits.getImageDimensions();
+        const dims = fits.getImageDimensions() catch {
+            return ImageError.InvalidDimensions;
+        };
 
         // Determine data type and create image
         var status: c_int = 0;
         var bitpix: c_int = undefined;
         _ = c.fits_get_img_type(fits.fptr, &bitpix, &status);
-        if (status != 0) return error.InvalidImageType;
+        if (status != 0) return ImageError.InvalidImageType;
         std.debug.print("BITPIX value from file: {}\n", .{bitpix}); // Add this debug line
 
         const data_type: FitsType = switch (bitpix) {
@@ -161,71 +211,84 @@ pub const ImageOperations = struct {
             -16 => .UTSHORT, // unsigned 16-bit
             -32 => .TFLOAT, // 32-bit float
             -64 => .TDOUBLE, // 64-bit double
-            else => return error.UnsupportedBitpix,
+            else => return ImageError.UnsupportedBitpix,
         };
         std.debug.print("Creating image with type: {}\n", .{data_type});
 
-        var img = try ImageOperations.init(allocator, dims[0], dims[1], data_type);
+        var img = ImageOperations.init(allocator, dims[0], dims[1], data_type) catch |err| {
+            return switch (err) {
+                ImageError.OutOfMemory => ImageError.AllocationFailed,
+                else => ImageError.InvalidOperation,
+            };
+        };
+
         errdefer img.deinit();
 
         // Read image data
         var anynull: c_int = 0;
         switch (data_type) {
-            .TBIT, .TLOGICAL, .TSTRING => return error.UnsupportedImageType,
+            .TBIT, .TLOGICAL, .TSTRING => return ImageError.UnsupportedImageType,
             .TBYTE => {
                 var nullval: i8 = 0;
                 const result = c.fits_read_img(fits.fptr, c.TBYTE, 1, @intCast(dims[0] * dims[1]), &nullval, &img.data.i8[0], &anynull, &status);
-                if (result != 0) return error.ReadImageFailed;
+                if (result != 0) return ImageError.ReadImageFailed;
             },
             .UTBYTE => {
                 var nullval: u8 = 0;
                 const result = c.fits_read_img(fits.fptr, c.TBYTE, 1, @intCast(dims[0] * dims[1]), &nullval, &img.data.u8[0], &anynull, &status);
-                if (result != 0) return error.ReadImageFailed;
+                if (result != 0) return ImageError.ReadImageFailed;
             },
             .TSHORT => {
                 var nullval: i16 = 0;
                 const result = c.fits_read_img(fits.fptr, c.TSHORT, 1, @intCast(dims[0] * dims[1]), &nullval, &img.data.i16[0], &anynull, &status);
-                if (result != 0) return error.ReadImageFailed;
+                if (result != 0) return ImageError.ReadImageFailed;
             },
             .UTSHORT => {
                 var nullval: u16 = 0;
                 const result = c.fits_read_img(fits.fptr, c.TSHORT, 1, @intCast(dims[0] * dims[1]), &nullval, &img.data.u16[0], &anynull, &status);
-                if (result != 0) return error.ReadImageFailed;
+                if (result != 0) return ImageError.ReadImageFailed;
             },
             .TINT => {
                 var nullval: i32 = 0;
                 const result = c.fits_read_img(fits.fptr, c.TINT, 1, @intCast(dims[0] * dims[1]), &nullval, &img.data.i32[0], &anynull, &status);
-                if (result != 0) return error.ReadImageFailed;
+                if (result != 0) return ImageError.ReadImageFailed;
             },
             .UTINT => {
                 var nullval: u32 = 0;
                 const result = c.fits_read_img(fits.fptr, c.TINT, 1, @intCast(dims[0] * dims[1]), &nullval, &img.data.u32[0], &anynull, &status);
-                if (result != 0) return error.ReadImageFailed;
+                if (result != 0) return ImageError.ReadImageFailed;
             },
             .TLONG => {
                 var nullval: i64 = 0;
                 const result = c.fits_read_img(fits.fptr, c.TLONG, 1, @intCast(dims[0] * dims[1]), &nullval, &img.data.i64[0], &anynull, &status);
-                if (result != 0) return error.ReadImageFailed;
+                if (result != 0) return ImageError.ReadImageFailed;
             },
             .UTLONG => {
                 var nullval: u64 = 0;
                 const result = c.fits_read_img(fits.fptr, c.TLONG, 1, @intCast(dims[0] * dims[1]), &nullval, &img.data.u64[0], &anynull, &status);
-                if (result != 0) return error.ReadImageFailed;
+                if (result != 0) return ImageError.ReadImageFailed;
             },
             .TFLOAT => {
                 var nullval: f32 = 0;
                 const result = c.fits_read_img(fits.fptr, c.TFLOAT, 1, @intCast(dims[0] * dims[1]), &nullval, &img.data.f32[0], &anynull, &status);
-                if (result != 0) return error.ReadImageFailed;
+                if (result != 0) return ImageError.ReadImageFailed;
             },
             .TDOUBLE => {
                 var nullval: f64 = 0;
                 const result = c.fits_read_img(fits.fptr, c.TDOUBLE, 1, @intCast(dims[0] * dims[1]), &nullval, &img.data.f64[0], &anynull, &status);
-                if (result != 0) return error.ReadImageFailed;
+                if (result != 0) return ImageError.ReadImageFailed;
             },
         }
 
-        // Try to read WCS information
-        try img.readWCSFromHeader(fits);
+        // Read WCS information with error handling
+        img.readWCSFromHeader(fits) catch |err| {
+            logError(ImageError.WCSReadError, .{
+                .operation = "fromFitsFile",
+                .details = "Failed to read WCS information",
+                .source_error = err,
+            });
+            return ImageError.WCSReadError;
+        };
 
         return img;
     }
@@ -280,46 +343,46 @@ pub const ImageOperations = struct {
         var status: c_int = 0;
         const size = self.width * self.height;
         switch (self.data_type) {
-            .TBIT, .TLOGICAL, .TSTRING => return error.UnsupportedImageType,
+            .TBIT, .TLOGICAL, .TSTRING => return ImageError.UnsupportedImageType,
             .TBYTE => {
                 const result = c.fits_write_img(fits.fptr, c.TBYTE, 1, @intCast(size), &self.data.i8[0], &status);
-                if (result != 0) return error.WriteImageFailed;
+                if (result != 0) return ImageError.WriteImageFailed;
             },
             .UTBYTE => {
                 const result = c.fits_write_img(fits.fptr, c.TBYTE, 1, @intCast(size), &self.data.u8[0], &status);
-                if (result != 0) return error.WriteImageFailed;
+                if (result != 0) return ImageError.WriteImageFailed;
             },
             .TSHORT => {
                 const result = c.fits_write_img(fits.fptr, c.TSHORT, 1, @intCast(size), &self.data.i16[0], &status);
-                if (result != 0) return error.WriteImageFailed;
+                if (result != 0) return ImageError.WriteImageFailed;
             },
             .UTSHORT => {
                 const result = c.fits_write_img(fits.fptr, c.TSHORT, 1, @intCast(size), &self.data.u16[0], &status);
-                if (result != 0) return error.WriteImageFailed;
+                if (result != 0) return ImageError.WriteImageFailed;
             },
             .TINT => {
                 const result = c.fits_write_img(fits.fptr, c.TINT, 1, @intCast(size), &self.data.i32[0], &status);
-                if (result != 0) return error.WriteImageFailed;
+                if (result != 0) return ImageError.WriteImageFailed;
             },
             .UTINT => {
                 const result = c.fits_write_img(fits.fptr, c.TINT, 1, @intCast(size), &self.data.u32[0], &status);
-                if (result != 0) return error.WriteImageFailed;
+                if (result != 0) return ImageError.WriteImageFailed;
             },
             .TLONG => {
                 const result = c.fits_write_img(fits.fptr, c.TLONG, 1, @intCast(size), &self.data.i64[0], &status);
-                if (result != 0) return error.WriteImageFailed;
+                if (result != 0) return ImageError.WriteImageFailed;
             },
             .UTLONG => {
                 const result = c.fits_write_img(fits.fptr, c.TLONG, 1, @intCast(size), &self.data.u64[0], &status);
-                if (result != 0) return error.WriteImageFailed;
+                if (result != 0) return ImageError.WriteImageFailed;
             },
             .TFLOAT => {
                 const result = c.fits_write_img(fits.fptr, c.TFLOAT, 1, @intCast(size), &self.data.f32[0], &status);
-                if (result != 0) return error.WriteImageFailed;
+                if (result != 0) return ImageError.WriteImageFailed;
             },
             .TDOUBLE => {
                 const result = c.fits_write_img(fits.fptr, c.TDOUBLE, 1, @intCast(size), &self.data.f64[0], &status);
-                if (result != 0) return error.WriteImageFailed;
+                if (result != 0) return ImageError.WriteImageFailed;
             },
         }
 
@@ -327,7 +390,7 @@ pub const ImageOperations = struct {
         var header = FITSHeader.init(fits);
 
         const bitpix: i32 = switch (self.data_type) {
-            .TBIT, .TLOGICAL, .TSTRING => unreachable, // Already handled by error.UnsupportedImageType above
+            .TBIT, .TLOGICAL, .TSTRING => unreachable, // Already handled by ImageError.UnsupportedImageType above
             .TBYTE => 8,
             .TSHORT => 16,
             .TINT => 32,
@@ -379,7 +442,7 @@ pub const ImageOperations = struct {
         var writer = file.writer();
 
         switch (self.data_type) {
-            .TBIT, .TLOGICAL, .TSTRING => return error.UnsupportedImageType,
+            .TBIT, .TLOGICAL, .TSTRING => return ImageError.UnsupportedImageType,
             .TBYTE => {
                 for (self.data.i8) |value| {
                     const bytes = @as(u8, @bitCast(value));
@@ -516,16 +579,30 @@ pub const ImageOperations = struct {
 
     /// Sets WCS parameters for a specific axis
     /// axis must be 1 (X) or 2 (Y) for FITS image data
-    /// Returns error.InvalidAxis for other axis values
+    /// Returns ImageError.InvalidAxis for other axis values
     pub fn setPhysicalAxis(self: *ImageOperations, axis: u8, crval: f64, cdelt: f64, crpix: f64) !void {
         const coords = PhysicalCoords{ .crval = crval, .cdelt = cdelt, .crpix = crpix };
         switch (axis) {
             1 => self.x_axis = coords,
             2 => self.y_axis = coords,
-            else => return error.InvalidAxis,
+            else => return ImageError.InvalidAxis,
         }
     }
 };
+
+/// Add error logging capability
+pub fn logError(err: ImageError, context: ErrorContext) void {
+    std.log.err("{s} failed: {s}", .{
+        context.operation,
+        @errorName(err),
+    });
+    if (context.details) |details| {
+        std.log.err("Details: {s}", .{details});
+    }
+    if (context.source_error) |source| {
+        std.log.err("Source error: {s}", .{@errorName(source)});
+    }
+}
 
 /// Holds basic statistical measures for image data
 pub const ImageStats = struct {
@@ -537,7 +614,7 @@ pub const ImageStats = struct {
 };
 
 fn calculateTypeStats(comptime T: type, data: []const T, allocator: std.mem.Allocator) !ImageStats {
-    if (data.len == 0) return error.EmptyData;
+    if (data.len == 0) return ImageError.EmptyData;
 
     var stats: ImageStats = undefined;
     const size = data.len;
@@ -611,7 +688,7 @@ fn calculateTypeStats(comptime T: type, data: []const T, allocator: std.mem.Allo
 pub fn calculateStatistics(self: *const ImageOperations) !ImageStats {
     return switch (self.data_type) {
         // These types are not valid for image data
-        .TBIT, .TLOGICAL, .TSTRING => return error.UnsupportedImageType,
+        .TBIT, .TLOGICAL, .TSTRING => return ImageError.UnsupportedImageType,
         .TBYTE => calculateTypeStats(i8, self.data.i8, self.allocator),
         .TSHORT => calculateTypeStats(i16, self.data.i16, self.allocator),
         .TINT => calculateTypeStats(i32, self.data.i32, self.allocator),
@@ -623,6 +700,55 @@ pub fn calculateStatistics(self: *const ImageOperations) !ImageStats {
         .TFLOAT => calculateTypeStats(f32, self.data.f32, self.allocator),
         .TDOUBLE => calculateTypeStats(f64, self.data.f64, self.allocator),
     };
+}
+
+pub const ImageValidationError = error{
+    InvalidDimensions,
+    ZeroDimension,
+    DimensionTooLarge,
+    NullData,
+    NaNValue,
+    InfinityValue,
+    ValueOutOfRange,
+};
+
+pub fn validateImageData(self: *const ImageOperations) !void {
+    if (self.width == 0 or self.height == 0) return ImageValidationError.ZeroDimension;
+    // Use a reasonable max dimension (e.g., 65535 x 65535)
+    const max_dimension: usize = 65535;
+    if (self.width > max_dimension or self.height > max_dimension) {
+        return ImageValidationError.DimensionTooLarge;
+    }
+
+    // Validate data based on type
+    switch (self.data_type) {
+        .TBIT, .TLOGICAL, .TSTRING => return ImageError.UnsupportedImageType,
+        .TFLOAT => {
+            // Check for NaN and Infinity
+            for (self.data.f32) |value| {
+                if (std.math.isNan(value)) {
+                    return ImageValidationError.NaNValue;
+                }
+                if (std.math.isInf(value)) {
+                    return ImageValidationError.InfinityValue;
+                }
+            }
+        },
+        .TDOUBLE => {
+            // Check for NaN and Infinity
+            for (self.data.f64) |value| {
+                if (std.math.isNan(value)) {
+                    return ImageValidationError.NaNValue;
+                }
+                if (std.math.isInf(value)) {
+                    return ImageValidationError.InfinityValue;
+                }
+            }
+        },
+        // For integer types, we might want to check value ranges
+        // depending on the application requirements
+        .TBYTE, .TSHORT, .TINT, .TLONG, .UTBYTE, .UTSHORT, .UTINT, .UTLONG => {},
+    }
 }
 
 test "image operations with FITS integration" {
@@ -723,7 +849,7 @@ test "ImageOperations statistics calculations" {
         var img = try ImageOperations.init(allocator, 0, 0, .TFLOAT);
         defer img.deinit();
 
-        try std.testing.expectError(error.EmptyData, calculateStatistics(&img));
+        try std.testing.expectError(ImageError.EmptyData, calculateStatistics(&img));
     }
 
     {
@@ -740,5 +866,43 @@ test "ImageOperations statistics calculations" {
         try expectEqual(stats.mean, 2500000.0);
         try expectEqual(stats.median, 2500000.0);
         try expect(@abs(stats.stddev - 1118033.9887499) < 1.0);
+    }
+}
+
+test "Image data validation" {
+    const allocator = std.testing.allocator;
+
+    // Test valid image
+    {
+        var img = try ImageOperations.init(allocator, 2, 2, .TFLOAT);
+        defer img.deinit();
+        const test_data = [_]f32{ 1.0, 2.0, 3.0, 4.0 };
+        @memcpy(img.data.f32, &test_data);
+        try validateImageData(&img);
+    }
+
+    // Test zero dimension
+    {
+        var img = try ImageOperations.init(allocator, 0, 2, .TFLOAT);
+        defer img.deinit();
+        try std.testing.expectError(ImageValidationError.ZeroDimension, validateImageData(&img));
+    }
+
+    // Test NaN value
+    {
+        var img = try ImageOperations.init(allocator, 2, 2, .TFLOAT);
+        defer img.deinit();
+        const test_data = [_]f32{ 1.0, std.math.nan(f32), 3.0, 4.0 };
+        @memcpy(img.data.f32, &test_data);
+        try std.testing.expectError(ImageValidationError.NaNValue, validateImageData(&img));
+    }
+
+    // Test infinity value
+    {
+        var img = try ImageOperations.init(allocator, 2, 2, .TFLOAT);
+        defer img.deinit();
+        const test_data = [_]f32{ 1.0, 2.0, std.math.inf(f32), 4.0 };
+        @memcpy(img.data.f32, &test_data);
+        try std.testing.expectError(ImageValidationError.InfinityValue, validateImageData(&img));
     }
 }
