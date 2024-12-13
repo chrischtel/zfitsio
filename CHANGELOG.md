@@ -1,4 +1,23 @@
-## [Unreleased] - v0.2.0 
+## v0.3.0 
+### Added
+This release is mainly focues on the Image Module.
+- Added support for more FITSIO Datatypes:
+  - UTBYTE
+  - UTSHORT
+  - UTINT
+  - UTLONG
+
+- Added new function `Image.calculateStatistics`
+  - You can use then new ImageStats struct to get follwing statistical values:
+    - min
+    - max
+    - mean
+    - median
+    - stddev
+- Added more error handling functionality
+  - With the `` function you can now log error formated error messages.
+
+## v0.2.0 
 ### Added
 - Header Manipulation
  - Write/update header keywords with support for:
